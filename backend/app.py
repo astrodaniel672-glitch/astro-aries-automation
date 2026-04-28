@@ -123,6 +123,13 @@ def _create_order(order: OrderRequest) -> dict[str, Any]:
     }
 
 
+def _run_agent_task(task_name: str, payload: dict[str, Any]) -> dict[str, Any]:
+    if task_name == "orders.create":
+        return _create_order(OrderRequest(**payload))
+
+    return orchestrator.run(task_name, payload)
+
+
 @app.get("/health")
 def health_check() -> dict[str, str]:
     return {"status": "ok"}
@@ -135,7 +142,7 @@ def list_agents() -> list[dict[str, Any]]:
 
 @app.post("/agents/run")
 def run_agent(request: AgentRunRequest) -> dict[str, Any]:
-    return orchestrator.run(request.task_name, request.payload)
+    return _run_agent_task(request.task_name, request.payload)
 
 
 @app.post("/order")
