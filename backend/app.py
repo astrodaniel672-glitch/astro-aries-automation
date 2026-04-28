@@ -7,9 +7,15 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, EmailStr, model_validator
 from supabase import Client, create_client
 
+try:
+    from backend.orchestrator import create_default_orchestrator
+except ModuleNotFoundError:
+    from orchestrator import create_default_orchestrator
+
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 
 app = FastAPI(title="ASTRO ARIES STUDIO Automation")
+orchestrator = create_default_orchestrator()
 
 
 class OrderRequest(BaseModel):
@@ -42,6 +48,11 @@ class OrderRequest(BaseModel):
             )
 
         return self
+
+
+class AgentRunRequest(BaseModel):
+    task_name: str
+    payload: dict[str, Any] = {}
 
 
 def get_supabase_client() -> Client:
@@ -115,6 +126,16 @@ def _create_order(order: OrderRequest) -> dict[str, Any]:
 @app.get("/health")
 def health_check() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/agents")
+def list_agents() -> list[dict[str, Any]]:
+    return orchestrator.list_tasks()
+
+
+@app.post("/agents/run")
+def run_agent(request: AgentRunRequest) -> dict[str, Any]:
+    return orchestrator.run(request.task_name, request.payload)
 
 
 @app.post("/order")
