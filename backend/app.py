@@ -5,6 +5,7 @@ from typing import Any, Optional
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, EmailStr, model_validator
 from supabase import Client, create_client
 
@@ -15,6 +16,7 @@ except ModuleNotFoundError:
 
 load_dotenv(dotenv_path=Path(__file__).resolve().parent / ".env")
 
+BASE_DIR = Path(__file__).resolve().parent.parent
 app = FastAPI(title="ASTRO ARIES STUDIO Automation")
 orchestrator = create_default_orchestrator()
 
@@ -233,6 +235,14 @@ def _run_setup_sequence(request: SetupRunRequest) -> dict[str, Any]:
         )
 
     return {"success": True, "mode": "dry_run" if request.dry_run else "live", "steps": steps}
+
+
+@app.get("/admin")
+def admin_panel() -> FileResponse:
+    panel_path = BASE_DIR / "admin_panel.html"
+    if not panel_path.exists():
+        raise HTTPException(status_code=404, detail="Admin panel file not found.")
+    return FileResponse(panel_path)
 
 
 @app.get("/health")
