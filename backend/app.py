@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
@@ -81,6 +82,14 @@ def _sanitize_error_message(exc: Exception) -> str:
     return str(exc).strip() or exc.__class__.__name__
 
 
+def _missing_column_from_error(exc: Exception) -> Optional[str]:
+    message = _sanitize_error_message(exc)
+    match = re.search(r"Could not find the '([^']+)' column", message)
+    if match:
+        return match.group(1)
+    return None
+
+
 def _env_is_set(name: str) -> bool:
     return bool((os.getenv(name) or "").strip())
 
@@ -127,6 +136,45 @@ def _build_order_payload(order: OrderRequest) -> dict[str, Any]:
     return {key: value for key, value in payload.items() if value is not None}
 
 
+def _insert_order_payload(supabase: Client, payload: dict[str, Any]) -> dict[str, Any]:
+    working_payload = dict(payload)
+    removed_columns: list[str] = []
+
+    for _ in range(8):
+        try:
+            response = supabase.table("orders").insert(working_payload).execute()
+            inserted_record = response.data[0] if response.data else working_payload
+            return {
+                "success": True,
+                "message": "Order saved successfully.",
+                "order": inserted_record,
+                "removed_columns": removed_columns,
+            }
+        except Exception as exc:
+            missing_column = _missing_column_from_error(exc)
+            if missing_column and missing_column in working_payload:
+                removed_columns.append(missing_column)
+                working_payload.pop(missing_column, None)
+                continue
+
+            raise HTTPException(
+                status_code=500,
+                detail={
+                    "message": "Failed to save order to Supabase.",
+                    "supabase_error": _sanitize_error_message(exc),
+                    "removed_columns": removed_columns,
+                },
+            ) from exc
+
+    raise HTTPException(
+        status_code=500,
+        detail={
+            "message": "Failed to save order to Supabase after schema fallback retries.",
+            "removed_columns": removed_columns,
+        },
+    )
+
+
 def _create_order(order: OrderRequest) -> dict[str, Any]:
     if not order.first_name.strip():
         raise HTTPException(status_code=400, detail="first_name is required")
@@ -136,25 +184,7 @@ def _create_order(order: OrderRequest) -> dict[str, Any]:
 
     payload = _build_order_payload(order)
     supabase = get_supabase_client()
-
-    try:
-        response = supabase.table("orders").insert(payload).execute()
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail={
-                "message": "Failed to save order to Supabase.",
-                "supabase_error": _sanitize_error_message(exc),
-            },
-        ) from exc
-
-    inserted_record = response.data[0] if response.data else payload
-
-    return {
-        "success": True,
-        "message": "Order saved successfully.",
-        "order": inserted_record,
-    }
+    return _insert_order_payload(supabase, payload)
 
 
 def _run_agent_task(task_name: str, payload: dict[str, Any]) -> dict[str, Any]:
