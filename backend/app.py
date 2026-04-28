@@ -72,6 +72,10 @@ def _sanitize_error_message(exc: Exception) -> str:
     return str(exc).strip() or exc.__class__.__name__
 
 
+def _env_is_set(name: str) -> bool:
+    return bool((os.getenv(name) or "").strip())
+
+
 def _build_order_payload(order: OrderRequest) -> dict[str, Any]:
     payload = {
         "first_name": order.first_name,
@@ -133,6 +137,28 @@ def _run_agent_task(task_name: str, payload: dict[str, Any]) -> dict[str, Any]:
 @app.get("/health")
 def health_check() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/config/status")
+def config_status() -> dict[str, Any]:
+    checks = {
+        "SUPABASE_URL": _env_is_set("SUPABASE_URL"),
+        "SUPABASE_SERVICE_ROLE_KEY": _env_is_set("SUPABASE_SERVICE_ROLE_KEY"),
+        "META_PAGE_TOKEN": _env_is_set("META_PAGE_TOKEN"),
+        "META_APP_SECRET": _env_is_set("META_APP_SECRET"),
+        "GMAIL_ADDRESS": _env_is_set("GMAIL_ADDRESS"),
+        "GMAIL_APP_PASSWORD": _env_is_set("GMAIL_APP_PASSWORD"),
+    }
+
+    return {
+        "success": True,
+        "configured": checks,
+        "ready": {
+            "orders": checks["SUPABASE_URL"] and checks["SUPABASE_SERVICE_ROLE_KEY"],
+            "meta": checks["META_PAGE_TOKEN"] and checks["META_APP_SECRET"],
+            "email": checks["GMAIL_ADDRESS"] and checks["GMAIL_APP_PASSWORD"],
+        },
+    }
 
 
 @app.get("/agents")
