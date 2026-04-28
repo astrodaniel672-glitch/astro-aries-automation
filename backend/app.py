@@ -1,4 +1,5 @@
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
@@ -55,6 +56,12 @@ class AgentRunRequest(BaseModel):
     payload: dict[str, Any] = {}
 
 
+class SetupRunRequest(BaseModel):
+    create_test_order: bool = False
+    dry_run: bool = True
+    test_order: Optional[dict[str, Any]] = None
+
+
 def get_supabase_client() -> Client:
     supabase_url = os.getenv("SUPABASE_URL")
     service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
@@ -74,6 +81,27 @@ def _sanitize_error_message(exc: Exception) -> str:
 
 def _env_is_set(name: str) -> bool:
     return bool((os.getenv(name) or "").strip())
+
+
+def _config_status_payload() -> dict[str, Any]:
+    checks = {
+        "SUPABASE_URL": _env_is_set("SUPABASE_URL"),
+        "SUPABASE_SERVICE_ROLE_KEY": _env_is_set("SUPABASE_SERVICE_ROLE_KEY"),
+        "META_PAGE_TOKEN": _env_is_set("META_PAGE_TOKEN"),
+        "META_APP_SECRET": _env_is_set("META_APP_SECRET"),
+        "GMAIL_ADDRESS": _env_is_set("GMAIL_ADDRESS"),
+        "GMAIL_APP_PASSWORD": _env_is_set("GMAIL_APP_PASSWORD"),
+    }
+
+    return {
+        "success": True,
+        "configured": checks,
+        "ready": {
+            "orders": checks["SUPABASE_URL"] and checks["SUPABASE_SERVICE_ROLE_KEY"],
+            "meta": checks["META_PAGE_TOKEN"] and checks["META_APP_SECRET"],
+            "email": checks["GMAIL_ADDRESS"] and checks["GMAIL_APP_PASSWORD"],
+        },
+    }
 
 
 def _build_order_payload(order: OrderRequest) -> dict[str, Any]:
@@ -134,6 +162,79 @@ def _run_agent_task(task_name: str, payload: dict[str, Any]) -> dict[str, Any]:
     return orchestrator.run(task_name, payload)
 
 
+def _default_test_order() -> dict[str, Any]:
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    return {
+        "first_name": "AUTO_TEST",
+        "last_name": "Orchestrator",
+        "email": f"auto-test-{stamp}@example.com",
+        "phone": "+38160000000",
+        "instagram_username": "auto_test_astro",
+        "service_name": "Automation test order",
+        "price_rsd": 0,
+        "birth_date": "08.05.1967",
+        "birth_time": "10:10",
+        "birth_place": "Split, Hrvatska",
+        "message": f"Setup runner test order {stamp}",
+        "status": "test",
+    }
+
+
+def _step(name: str, status: str, detail: Any = None) -> dict[str, Any]:
+    return {"name": name, "status": status, "detail": detail}
+
+
+def _run_setup_sequence(request: SetupRunRequest) -> dict[str, Any]:
+    steps: list[dict[str, Any]] = []
+
+    steps.append(_step("health", "passed", {"status": "ok"}))
+
+    config = _config_status_payload()
+    steps.append(_step("config.status", "passed", config))
+
+    agents = orchestrator.list_tasks()
+    steps.append(_step("agents.list", "passed", {"count": len(agents), "agents": agents}))
+
+    if not config["ready"]["orders"]:
+        steps.append(
+            _step(
+                "orders.ready",
+                "blocked",
+                "Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the runtime environment.",
+            )
+        )
+        return {"success": False, "mode": "dry_run" if request.dry_run else "live", "steps": steps}
+
+    steps.append(_step("orders.ready", "passed", "Supabase order environment is configured."))
+
+    test_payload = request.test_order or _default_test_order()
+    try:
+        validated = OrderRequest(**test_payload)
+        safe_payload = _build_order_payload(validated)
+        steps.append(_step("orders.payload_validation", "passed", safe_payload))
+    except Exception as exc:
+        steps.append(_step("orders.payload_validation", "failed", _sanitize_error_message(exc)))
+        return {"success": False, "mode": "dry_run" if request.dry_run else "live", "steps": steps}
+
+    if request.create_test_order and not request.dry_run:
+        try:
+            created = _create_order(validated)
+            steps.append(_step("orders.create_test_order", "passed", created))
+        except HTTPException as exc:
+            steps.append(_step("orders.create_test_order", "failed", exc.detail))
+            return {"success": False, "mode": "live", "steps": steps}
+    else:
+        steps.append(
+            _step(
+                "orders.create_test_order",
+                "skipped",
+                "Dry run only. Send create_test_order=true and dry_run=false for live Supabase insert.",
+            )
+        )
+
+    return {"success": True, "mode": "dry_run" if request.dry_run else "live", "steps": steps}
+
+
 @app.get("/health")
 def health_check() -> dict[str, str]:
     return {"status": "ok"}
@@ -141,24 +242,7 @@ def health_check() -> dict[str, str]:
 
 @app.get("/config/status")
 def config_status() -> dict[str, Any]:
-    checks = {
-        "SUPABASE_URL": _env_is_set("SUPABASE_URL"),
-        "SUPABASE_SERVICE_ROLE_KEY": _env_is_set("SUPABASE_SERVICE_ROLE_KEY"),
-        "META_PAGE_TOKEN": _env_is_set("META_PAGE_TOKEN"),
-        "META_APP_SECRET": _env_is_set("META_APP_SECRET"),
-        "GMAIL_ADDRESS": _env_is_set("GMAIL_ADDRESS"),
-        "GMAIL_APP_PASSWORD": _env_is_set("GMAIL_APP_PASSWORD"),
-    }
-
-    return {
-        "success": True,
-        "configured": checks,
-        "ready": {
-            "orders": checks["SUPABASE_URL"] and checks["SUPABASE_SERVICE_ROLE_KEY"],
-            "meta": checks["META_PAGE_TOKEN"] and checks["META_APP_SECRET"],
-            "email": checks["GMAIL_ADDRESS"] and checks["GMAIL_APP_PASSWORD"],
-        },
-    }
+    return _config_status_payload()
 
 
 @app.get("/agents")
@@ -169,6 +253,11 @@ def list_agents() -> list[dict[str, Any]]:
 @app.post("/agents/run")
 def run_agent(request: AgentRunRequest) -> dict[str, Any]:
     return _run_agent_task(request.task_name, request.payload)
+
+
+@app.post("/setup/run")
+def run_setup(request: SetupRunRequest) -> dict[str, Any]:
+    return _run_setup_sequence(request)
 
 
 @app.post("/order")
