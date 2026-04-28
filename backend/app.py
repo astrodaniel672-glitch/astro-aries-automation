@@ -17,43 +17,29 @@ class OrderRequest(BaseModel):
     last_name: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
+    instagram_username: Optional[str] = None
     service_name: str
     price_rsd: Optional[float] = None
     birth_date: str
     birth_time: str
     birth_place: str
-    marital_status: Optional[str] = None
+    partner_birth_data: Optional[str] = None
     questions: Optional[Any] = None
     message: Optional[str] = None
-    source: Optional[str] = None
-    entry_method: Optional[str] = None
-    external_conversation_id: Optional[str] = None
-    external_user_id: Optional[str] = None
-    username: Optional[str] = None
-    contact_preference: Optional[str] = None
-    internal_notes: Optional[str] = None
-    order_status: str = "received"
+    status: str = "received"
 
     @model_validator(mode="after")
     def validate_fields(self) -> "OrderRequest":
-        allowed_sources = {"instagram_dm", "whatsapp", "website", "email", "manual"}
-        allowed_entry_methods = {"automatic", "manual"}
-
-        if self.source is not None and self.source not in allowed_sources:
-            raise ValueError("source must be one of: instagram_dm, whatsapp, website, email, manual")
-
-        if self.entry_method is not None and self.entry_method not in allowed_entry_methods:
-            raise ValueError("entry_method must be one of: automatic, manual")
-
         contact_fields = [
             self.email,
             (self.phone or "").strip(),
-            (self.username or "").strip(),
-            (self.external_user_id or "").strip(),
+            (self.instagram_username or "").strip(),
         ]
 
         if not any(contact_fields):
-            raise ValueError("At least one contact field is required: email, phone, username, or external_user_id")
+            raise ValueError(
+                "At least one contact field is required: email, phone, or instagram_username"
+            )
 
         return self
 
@@ -71,26 +57,51 @@ def get_supabase_client() -> Client:
     return create_client(supabase_url, service_role_key)
 
 
-@app.get("/health")
-def health_check() -> dict[str, str]:
-    return {"status": "ok"}
+def _sanitize_error_message(exc: Exception) -> str:
+    return str(exc).strip() or exc.__class__.__name__
 
 
-@app.post("/order")
-def create_order(order: OrderRequest) -> dict[str, Any]:
+def _build_order_payload(order: OrderRequest) -> dict[str, Any]:
+    payload = {
+        "first_name": order.first_name,
+        "last_name": order.last_name,
+        "email": str(order.email) if order.email else None,
+        "phone": order.phone,
+        "instagram_username": order.instagram_username,
+        "service_name": order.service_name,
+        "price_rsd": order.price_rsd,
+        "birth_date": order.birth_date,
+        "birth_time": order.birth_time,
+        "birth_place": order.birth_place,
+        "partner_birth_data": order.partner_birth_data,
+        "questions": order.questions,
+        "message": order.message,
+        "status": order.status or "received",
+    }
+
+    return {key: value for key, value in payload.items() if value is not None}
+
+
+def _create_order(order: OrderRequest) -> dict[str, Any]:
     if not order.first_name.strip():
         raise HTTPException(status_code=400, detail="first_name is required")
 
     if not order.service_name.strip():
         raise HTTPException(status_code=400, detail="service_name is required")
 
+    payload = _build_order_payload(order)
     supabase = get_supabase_client()
-    payload = order.model_dump(exclude_none=True)
 
     try:
         response = supabase.table("orders").insert(payload).execute()
-    except Exception:
-        raise HTTPException(status_code=500, detail="Failed to save order to Supabase.")
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "message": "Failed to save order to Supabase.",
+                "supabase_error": _sanitize_error_message(exc),
+            },
+        ) from exc
 
     inserted_record = response.data[0] if response.data else payload
 
@@ -99,3 +110,18 @@ def create_order(order: OrderRequest) -> dict[str, Any]:
         "message": "Order saved successfully.",
         "order": inserted_record,
     }
+
+
+@app.get("/health")
+def health_check() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.post("/order")
+def create_order(order: OrderRequest) -> dict[str, Any]:
+    return _create_order(order)
+
+
+@app.post("/orders")
+def create_orders(order: OrderRequest) -> dict[str, Any]:
+    return _create_order(order)
