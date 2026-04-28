@@ -23,6 +23,15 @@ SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 ```
 
+Optional future environment variables:
+
+```bash
+META_PAGE_TOKEN=
+META_APP_SECRET=
+GMAIL_ADDRESS=
+GMAIL_APP_PASSWORD=
+```
+
 ## Health check
 
 ```bash
@@ -33,6 +42,33 @@ Expected:
 
 ```json
 {"status":"ok"}
+```
+
+## Setup Runner agent
+
+This is the fastest one-call check. It runs the setup sequence step by step:
+
+1. health check
+2. configuration status
+3. agent registry
+4. Supabase orders readiness
+5. test order payload validation
+6. optional live test insert into Supabase
+
+Dry run, no Supabase insert:
+
+```bash
+curl -X POST http://127.0.0.1:8000/setup/run \
+  -H "Content-Type: application/json" \
+  -d '{"dry_run": true, "create_test_order": false}'
+```
+
+Live Supabase test insert:
+
+```bash
+curl -X POST http://127.0.0.1:8000/setup/run \
+  -H "Content-Type: application/json" \
+  -d '{"dry_run": false, "create_test_order": true}'
 ```
 
 ## Create order directly
