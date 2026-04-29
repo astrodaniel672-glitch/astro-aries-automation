@@ -14,7 +14,7 @@ class OrderLookupRequest(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
     query: str | None = None
-    limit: int = 5
+    limit: int = 10
 
 
 def _supabase():
@@ -54,8 +54,11 @@ def _format_order(order: dict[str, Any]) -> dict[str, Any]:
         "id": order.get("id"),
         "created_at": order.get("created_at"),
         "client": " ".join(part for part in [order.get("first_name"), order.get("last_name")] if part).strip() or None,
+        "first_name": order.get("first_name"),
+        "last_name": order.get("last_name"),
         "email": order.get("email"),
         "phone": order.get("phone"),
+        "service_id": order.get("service_id"),
         "service_name": order.get("service_name"),
         "price_rsd": order.get("price_rsd"),
         "birth_date": order.get("birth_date"),
@@ -67,6 +70,7 @@ def _format_order(order: dict[str, Any]) -> dict[str, Any]:
         "completed_at": order.get("completed_at"),
         "deadline_at": order.get("deadline_at"),
         "admin_notes": order.get("admin_notes"),
+        "message": order.get("message"),
         "next_step": _order_next_step(order),
     }
 
@@ -77,29 +81,26 @@ def lookup_orders(request: OrderLookupRequest) -> dict[str, Any]:
     first_name = _clean(request.first_name)
     last_name = _clean(request.last_name)
     query = _clean(request.query)
-    limit = max(1, min(request.limit, 20))
-
-    if not any([email, phone, first_name, last_name, query]):
-        raise HTTPException(
-            status_code=400,
-            detail="Provide at least one lookup field: email, phone, first_name, last_name or query.",
-        )
+    limit = max(1, min(request.limit, 50))
 
     client = _supabase()
     try:
         q = client.table("orders").select("*")
+
         if email:
-            q = q.eq("email", email)
+            q = q.ilike("email", email)
         if phone:
-            q = q.eq("phone", phone)
+            q = q.ilike("phone", f"%{phone}%")
         if first_name:
             q = q.ilike("first_name", f"%{first_name}%")
         if last_name:
             q = q.ilike("last_name", f"%{last_name}%")
         if query and not any([email, phone, first_name, last_name]):
+            safe_query = query.replace(",", " ").replace("%", "")
             q = q.or_(
-                f"first_name.ilike.%{query}%,last_name.ilike.%{query}%,email.ilike.%{query}%,phone.ilike.%{query}%,service_name.ilike.%{query}%"
+                f"first_name.ilike.%{safe_query}%,last_name.ilike.%{safe_query}%,email.ilike.%{safe_query}%,phone.ilike.%{safe_query}%,service_name.ilike.%{safe_query}%,birth_place.ilike.%{safe_query}%,message.ilike.%{safe_query}%,status.ilike.%{safe_query}%"
             )
+
         result = q.order("created_at", desc=True).limit(limit).execute()
     except Exception as exc:
         raise HTTPException(
@@ -108,9 +109,11 @@ def lookup_orders(request: OrderLookupRequest) -> dict[str, Any]:
         ) from exc
 
     orders = [_format_order(order) for order in (result.data or [])]
+    search_mode = "latest" if not any([email, phone, first_name, last_name, query]) else "filtered"
     return {
         "success": True,
+        "search_mode": search_mode,
         "count": len(orders),
         "orders": orders,
-        "message": "No matching orders found." if not orders else "Matching orders found.",
+        "message": "No matching orders found." if not orders else "Orders returned.",
     }
