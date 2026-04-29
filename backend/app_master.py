@@ -15,6 +15,7 @@ try:
     )
     from backend.intent_extractor import ExtractRequest, extract_payload, merge_state
     from backend.master_assistant import AssistantRequest, assistant_respond_payload
+    from backend.order_actions import OrderDeleteRequest, OrderStatusUpdateRequest, delete_order, update_order_status
     from backend.order_status import OrderLookupRequest, lookup_orders
 except ModuleNotFoundError:
     from app import app
@@ -29,6 +30,7 @@ except ModuleNotFoundError:
     )
     from intent_extractor import ExtractRequest, extract_payload, merge_state
     from master_assistant import AssistantRequest, assistant_respond_payload
+    from order_actions import OrderDeleteRequest, OrderStatusUpdateRequest, delete_order, update_order_status
     from order_status import OrderLookupRequest, lookup_orders
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -77,6 +79,16 @@ def intent_extract(request: ExtractRequest):
 @app.post("/orders/lookup")
 def orders_lookup(request: OrderLookupRequest):
     return lookup_orders(request)
+
+
+@app.post("/orders/status")
+def orders_status_update(request: OrderStatusUpdateRequest):
+    return update_order_status(request)
+
+
+@app.post("/orders/delete")
+def orders_delete(request: OrderDeleteRequest):
+    return delete_order(request)
 
 
 @app.post("/memory/message")
