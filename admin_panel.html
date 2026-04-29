@@ -56,11 +56,7 @@
       font-weight: 700;
     }
 
-    .grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 18px;
-    }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
 
     .card {
       background: linear-gradient(180deg, var(--card), rgba(255,255,255,0.045));
@@ -88,9 +84,9 @@
     }
 
     textarea { min-height: 96px; resize: vertical; }
+    textarea.large { min-height: 150px; }
 
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-
     .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
 
     button {
@@ -118,6 +114,8 @@
       box-shadow: none;
     }
 
+    button.small { padding: 9px 11px; font-size: 13px; }
+
     pre {
       white-space: pre-wrap;
       word-break: break-word;
@@ -131,9 +129,21 @@
       color: #f7e7bd;
     }
 
+    .replybox {
+      background: rgba(0, 0, 0, 0.28);
+      border: 1px solid rgba(242, 210, 122, 0.22);
+      border-radius: 18px;
+      padding: 15px;
+      margin-top: 12px;
+      color: #fff4d6;
+      line-height: 1.5;
+      min-height: 90px;
+    }
+
     .statusline { color: var(--muted); font-size: 14px; margin: 10px 0 0; }
     .ok { color: var(--ok); }
     .bad { color: var(--danger); }
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 
     @media (max-width: 760px) {
       body { padding: 16px; }
@@ -159,7 +169,7 @@
         <h2>1. Backend URL</h2>
         <label for="baseUrl">Unesi javni URL backend-a</label>
         <input id="baseUrl" placeholder="https://tvoj-backend-url.com" />
-        <p class="statusline">Primer lokalno: <strong>http://127.0.0.1:8000</strong>. Kada deploy bude gotov, ovde ide javni URL.</p>
+        <p class="statusline">Primer: <strong>https://astro-aries-automation.onrender.com</strong></p>
         <div class="actions">
           <button onclick="saveBaseUrl()">Sačuvaj URL</button>
           <button class="secondary" onclick="loadSavedBaseUrl()">Učitaj sačuvano</button>
@@ -181,24 +191,12 @@
       <section class="card">
         <h2>3. Ručna test porudžbina</h2>
         <div class="row">
-          <div>
-            <label>Ime</label>
-            <input id="firstName" value="Test" />
-          </div>
-          <div>
-            <label>Email</label>
-            <input id="email" value="test@example.com" />
-          </div>
+          <div><label>Ime</label><input id="firstName" value="Test" /></div>
+          <div><label>Email</label><input id="email" value="test@example.com" /></div>
         </div>
         <div class="row">
-          <div>
-            <label>Telefon</label>
-            <input id="phone" value="+38160000000" />
-          </div>
-          <div>
-            <label>Instagram</label>
-            <input id="instagram" value="test_astro" />
-          </div>
+          <div><label>Telefon</label><input id="phone" value="+38160000000" /></div>
+          <div><label>Instagram</label><input id="instagram" value="test_astro" /></div>
         </div>
         <label>Usluga</label>
         <select id="serviceName">
@@ -211,24 +209,12 @@
           <option>10 Pitanja</option>
         </select>
         <div class="row">
-          <div>
-            <label>Cena RSD</label>
-            <input id="price" value="3300" />
-          </div>
-          <div>
-            <label>Status</label>
-            <input id="status" value="received" />
-          </div>
+          <div><label>Cena RSD</label><input id="price" value="3300" /></div>
+          <div><label>Status</label><input id="status" value="received" /></div>
         </div>
         <div class="row">
-          <div>
-            <label>Datum rođenja</label>
-            <input id="birthDate" value="08.05.1967" />
-          </div>
-          <div>
-            <label>Vreme rođenja</label>
-            <input id="birthTime" value="10:10" />
-          </div>
+          <div><label>Datum rođenja</label><input id="birthDate" value="08.05.1967" /></div>
+          <div><label>Vreme rođenja</label><input id="birthTime" value="10:10" /></div>
         </div>
         <label>Mesto rođenja</label>
         <input id="birthPlace" value="Split, Hrvatska" />
@@ -241,6 +227,29 @@
       </section>
 
       <section class="card wide">
+        <h2>4. Test DM / FAQ agenta</h2>
+        <p class="statusline">Unesi realnu poruku iz DM-a ili komentara. Agent vraća nameru, prioritet, akciju i odgovor koji treba da zvuči kao ASTRO ARIES STUDIO, ne kao AI.</p>
+        <div class="row">
+          <div><label>Ime klijenta / opcionalno</label><input id="dmName" placeholder="npr. Maja" /></div>
+          <div><label>Instagram / opcionalno</label><input id="dmInstagram" placeholder="npr. maja_77" /></div>
+        </div>
+        <label>Poruka klijenta</label>
+        <textarea id="dmMessage" class="large">Koliko košta natalna karta i šta treba da pošaljem?</textarea>
+        <div class="chips">
+          <button class="secondary small" onclick="setDm('Koliko košta natalna karta?')">Cena</button>
+          <button class="secondary small" onclick="setDm('Hoću natalnu kartu i predikcije, kako da poručim?')">Porudžbina</button>
+          <button class="secondary small" onclick="setDm('Kako se plaća?')">Plaćanje</button>
+          <button class="secondary small" onclick="setDm('Kada stiže moj horoskop?')">Rok</button>
+          <button class="secondary small" onclick="setDm('Šta treba od podataka za sinastriju?')">Sinastrija</button>
+        </div>
+        <div class="actions">
+          <button onclick="runClientIntake()">Pokreni DM agent</button>
+          <button class="secondary" onclick="copyReply()">Kopiraj odgovor</button>
+        </div>
+        <div class="replybox" id="dmReply">Ovde će se pojaviti gotov odgovor za klijenta.</div>
+      </section>
+
+      <section class="card wide">
         <h2>Rezultat</h2>
         <pre id="output">Spremno. Unesi backend URL i klikni proveru.</pre>
       </section>
@@ -250,10 +259,10 @@
   <script>
     const output = document.getElementById('output');
     const baseUrlInput = document.getElementById('baseUrl');
+    const dmReply = document.getElementById('dmReply');
+    let lastReply = '';
 
-    function normalizeBaseUrl() {
-      return baseUrlInput.value.trim().replace(/\/$/, '');
-    }
+    function normalizeBaseUrl() { return baseUrlInput.value.trim().replace(/\/$/, ''); }
 
     function saveBaseUrl() {
       localStorage.setItem('astro_aries_backend_url', normalizeBaseUrl());
@@ -265,19 +274,14 @@
       write({ success: true, message: 'Sačuvani URL učitan.', baseUrl: normalizeBaseUrl() });
     }
 
-    function write(data) {
-      output.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
-    }
+    function write(data) { output.textContent = typeof data === 'string' ? data : JSON.stringify(data, null, 2); }
 
     async function request(path, options = {}) {
       const baseUrl = normalizeBaseUrl();
       if (!baseUrl) throw new Error('Prvo unesi backend URL.');
       const res = await fetch(baseUrl + path, {
         ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(options.headers || {})
-        }
+        headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
       });
       const text = await res.text();
       let data;
@@ -288,40 +292,22 @@
 
     async function run(label, fn) {
       write('Pokrećem: ' + label + '...');
-      try {
-        const data = await fn();
-        write(data);
-      } catch (err) {
-        write({ success: false, error: err });
-      }
+      try { const data = await fn(); write(data); return data; }
+      catch (err) { write({ success: false, error: err }); throw err; }
     }
 
-    function getHealth() {
-      return run('health', () => request('/health'));
-    }
-
-    function getConfig() {
-      return run('config/status', () => request('/config/status'));
-    }
-
-    function getAgents() {
-      return run('agents', () => request('/agents'));
-    }
+    function getHealth() { return run('health', () => request('/health')); }
+    function getConfig() { return run('config/status', () => request('/config/status')); }
+    function getAgents() { return run('agents', () => request('/agents')); }
 
     function setupDryRun() {
-      return run('setup dry run', () => request('/setup/run', {
-        method: 'POST',
-        body: JSON.stringify({ dry_run: true, create_test_order: false })
-      }));
+      return run('setup dry run', () => request('/setup/run', { method: 'POST', body: JSON.stringify({ dry_run: true, create_test_order: false }) }));
     }
 
     function setupLiveTest() {
       const ok = confirm('Ovo će napraviti test porudžbinu u Supabase orders tabeli. Nastaviti?');
       if (!ok) return;
-      return run('setup live test', () => request('/setup/run', {
-        method: 'POST',
-        body: JSON.stringify({ dry_run: false, create_test_order: true })
-      }));
+      return run('setup live test', () => request('/setup/run', { method: 'POST', body: JSON.stringify({ dry_run: false, create_test_order: true }) }));
     }
 
     function collectOrder() {
@@ -341,17 +327,32 @@
     }
 
     function createOrderViaAgent() {
-      return run('orders.create', () => request('/agents/run', {
-        method: 'POST',
-        body: JSON.stringify({ task_name: 'orders.create', payload: collectOrder() })
-      }));
+      return run('orders.create', () => request('/agents/run', { method: 'POST', body: JSON.stringify({ task_name: 'orders.create', payload: collectOrder() }) }));
     }
 
     function createOrderDirect() {
-      return run('direct /orders', () => request('/orders', {
-        method: 'POST',
-        body: JSON.stringify(collectOrder())
-      }));
+      return run('direct /orders', () => request('/orders', { method: 'POST', body: JSON.stringify(collectOrder()) }));
+    }
+
+    function setDm(text) { document.getElementById('dmMessage').value = text; }
+
+    async function runClientIntake() {
+      dmReply.textContent = 'Pripremam odgovor...';
+      const payload = {
+        message: document.getElementById('dmMessage').value,
+        client_name: document.getElementById('dmName').value || null,
+        instagram_username: document.getElementById('dmInstagram').value || null,
+        channel: 'instagram_dm'
+      };
+      const data = await run('client_intake.respond', () => request('/client-intake/respond', { method: 'POST', body: JSON.stringify(payload) }));
+      lastReply = data.reply || '';
+      dmReply.textContent = lastReply || 'Nema odgovora.';
+    }
+
+    async function copyReply() {
+      if (!lastReply) return;
+      await navigator.clipboard.writeText(lastReply);
+      write({ success: true, message: 'Odgovor kopiran.', reply: lastReply });
     }
 
     loadSavedBaseUrl();
