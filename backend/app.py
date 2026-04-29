@@ -43,6 +43,8 @@ class OrderRequest(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     instagram_username: Optional[str] = None
+    order_source: Optional[str] = None
+    source: Optional[str] = None
     service_name: str
     price_rsd: Optional[float] = None
     birth_date: str
@@ -150,13 +152,24 @@ def _config_status_payload() -> dict[str, Any]:
     }
 
 
+def _source_label(order: OrderRequest) -> Optional[str]:
+    return (order.order_source or order.source or "").strip() or None
+
+
 def _build_order_payload(order: OrderRequest) -> dict[str, Any]:
+    source_label = _source_label(order)
+    message = order.message
+    if source_label:
+        source_line = f"Izvor porudžbine: {source_label}"
+        message = f"{source_line}\n{message}" if message else source_line
     payload = {
         "first_name": order.first_name,
         "last_name": order.last_name,
         "email": str(order.email) if order.email else None,
         "phone": order.phone,
         "instagram_username": order.instagram_username,
+        "order_source": source_label,
+        "source": source_label,
         "service_name": order.service_name,
         "price_rsd": order.price_rsd,
         "birth_date": order.birth_date,
@@ -164,7 +177,7 @@ def _build_order_payload(order: OrderRequest) -> dict[str, Any]:
         "birth_place": order.birth_place,
         "partner_birth_data": order.partner_birth_data,
         "questions": order.questions,
-        "message": order.message,
+        "message": message,
         "status": order.status or "received",
     }
     return {key: value for key, value in payload.items() if value is not None}
@@ -173,7 +186,7 @@ def _build_order_payload(order: OrderRequest) -> dict[str, Any]:
 def _insert_order_payload(supabase: Client, payload: dict[str, Any]) -> dict[str, Any]:
     working_payload = dict(payload)
     removed_columns: list[str] = []
-    for _ in range(8):
+    for _ in range(12):
         try:
             response = supabase.table("orders").insert(working_payload).execute()
             inserted_record = response.data[0] if response.data else working_payload
@@ -288,19 +301,11 @@ Intent može biti: pricing, order_intent, payment, delivery_status, required_dat
 Priority može biti: low, normal, high.
 Recommended_action može biti: reply_only, collect_birth_data, create_order_draft, check_order_status, human_review.
 """.strip()
-    user_payload = {
-        "message": request.message,
-        "client_name": request.client_name,
-        "instagram_username": request.instagram_username,
-        "channel": request.channel,
-    }
+    user_payload = {"message": request.message, "client_name": request.client_name, "instagram_username": request.instagram_username, "channel": request.channel}
     try:
         response = client.chat.completions.create(
             model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
-            ],
+            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)}],
             temperature=0.55,
             response_format={"type": "json_object"},
         )
@@ -308,20 +313,7 @@ Recommended_action može biti: reply_only, collect_birth_data, create_order_draf
         data = json.loads(content)
     except Exception as exc:
         raise HTTPException(status_code=500, detail={"message": "AI client intake failed.", "error": _sanitize_error_message(exc)}) from exc
-
-    return {
-        "success": True,
-        "agent": "client_intake.ai_respond",
-        "intent": data.get("intent", "unclear"),
-        "priority": data.get("priority", "normal"),
-        "recommended_action": data.get("recommended_action", "reply_only"),
-        "detected_service": data.get("detected_service"),
-        "reply": data.get("reply", ""),
-        "safe_to_send": bool(data.get("safe_to_send", False)),
-        "needs_human_review": bool(data.get("needs_human_review", True)),
-        "channel": request.channel,
-        "original_message": request.message,
-    }
+    return {"success": True, "agent": "client_intake.ai_respond", "intent": data.get("intent", "unclear"), "priority": data.get("priority", "normal"), "recommended_action": data.get("recommended_action", "reply_only"), "detected_service": data.get("detected_service"), "reply": data.get("reply", ""), "safe_to_send": bool(data.get("safe_to_send", False)), "needs_human_review": bool(data.get("needs_human_review", True)), "channel": request.channel, "original_message": request.message}
 
 
 def _run_agent_task(task_name: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -336,7 +328,7 @@ def _run_agent_task(task_name: str, payload: dict[str, Any]) -> dict[str, Any]:
 
 def _default_test_order() -> dict[str, Any]:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-    return {"first_name": "AUTO_TEST", "last_name": "Orchestrator", "email": f"auto-test-{stamp}@example.com", "phone": "+38160000000", "instagram_username": "auto_test_astro", "service_name": "Automation test order", "price_rsd": 0, "birth_date": "08.05.1967", "birth_time": "10:10", "birth_place": "Split, Hrvatska", "message": f"Setup runner test order {stamp}", "status": "test"}
+    return {"first_name": "AUTO_TEST", "last_name": "Orchestrator", "email": f"auto-test-{stamp}@example.com", "phone": "+38160000000", "instagram_username": "auto_test_astro", "order_source": "system_test", "service_name": "Automation test order", "price_rsd": 0, "birth_date": "08.05.1967", "birth_time": "10:10", "birth_place": "Split, Hrvatska", "message": f"Setup runner test order {stamp}", "status": "test"}
 
 
 def _step(name: str, status: str, detail: Any = None) -> dict[str, Any]:
