@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import HTTPException
@@ -14,7 +15,7 @@ class OrderLookupRequest(BaseModel):
     first_name: str | None = None
     last_name: str | None = None
     query: str | None = None
-    limit: int = 10
+    limit: int = 25
 
 
 def _supabase():
@@ -36,10 +37,47 @@ def _clean(value: str | None) -> str | None:
     return value or None
 
 
+def _parse_dt(value: Any) -> datetime | None:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value
+    try:
+        text = str(value).replace("Z", "+00:00")
+        return datetime.fromisoformat(text)
+    except Exception:
+        return None
+
+
+def _add_business_days(start: datetime, days: int) -> datetime:
+    current = start
+    added = 0
+    while added < days:
+        current = current + timedelta(days=1)
+        if current.weekday() < 5:
+            added += 1
+    return current
+
+
+def _computed_deadline(order: dict[str, Any]) -> datetime | None:
+    explicit = _parse_dt(order.get("deadline_at"))
+    if explicit:
+        return explicit
+    anchor = _parse_dt(order.get("payment_confirmed_at")) or _parse_dt(order.get("created_at"))
+    if not anchor:
+        return None
+    return _add_business_days(anchor, 5)
+
+
+def _is_done(order: dict[str, Any]) -> bool:
+    status = (order.get("status") or "").lower()
+    return bool(order.get("completed_at")) or status in {"completed", "done", "finished", "delivered"}
+
+
 def _order_next_step(order: dict[str, Any]) -> str:
     status = (order.get("status") or "").lower()
-    if order.get("completed_at") or status in {"completed", "done", "finished"}:
-        return "Izveštaj je završen."
+    if _is_done(order):
+        return "Izveštaj je završen / isporučen."
     if order.get("analysis_started_at") or status in {"in_progress", "analysis_started", "processing"}:
         return "Analiza je u izradi."
     if not order.get("payment_confirmed_at") and status not in {"paid", "payment_confirmed", "in_progress", "completed"}:
@@ -49,7 +87,47 @@ def _order_next_step(order: dict[str, Any]) -> str:
     return "Potrebna je ručna provera statusa."
 
 
+def _priority(order: dict[str, Any]) -> str:
+    if _is_done(order):
+        return "closed"
+    status = (order.get("status") or "").lower()
+    deadline = _computed_deadline(order)
+    now = datetime.now(timezone.utc)
+    if deadline:
+        if deadline.tzinfo is None:
+            deadline = deadline.replace(tzinfo=timezone.utc)
+        days_left = (deadline.date() - now.date()).days
+        if days_left < 0:
+            return "overdue"
+        if days_left <= 1:
+            return "urgent"
+        if days_left <= 3:
+            return "high"
+    if not order.get("payment_confirmed_at") and status not in {"paid", "payment_confirmed"}:
+        return "waiting_payment"
+    return "normal"
+
+
+def _delay_info(order: dict[str, Any]) -> dict[str, Any]:
+    deadline = _computed_deadline(order)
+    if not deadline:
+        return {"deadline_at_computed": None, "is_late": False, "days_late": 0, "days_left": None}
+    if deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
+    days_delta = (deadline.date() - now.date()).days
+    if _is_done(order):
+        return {"deadline_at_computed": deadline.isoformat(), "is_late": False, "days_late": 0, "days_left": days_delta}
+    return {
+        "deadline_at_computed": deadline.isoformat(),
+        "is_late": days_delta < 0,
+        "days_late": abs(days_delta) if days_delta < 0 else 0,
+        "days_left": days_delta,
+    }
+
+
 def _format_order(order: dict[str, Any]) -> dict[str, Any]:
+    delay = _delay_info(order)
     return {
         "id": order.get("id"),
         "created_at": order.get("created_at"),
@@ -65,14 +143,32 @@ def _format_order(order: dict[str, Any]) -> dict[str, Any]:
         "birth_time": order.get("birth_time"),
         "birth_place": order.get("birth_place"),
         "status": order.get("status"),
+        "priority": _priority(order),
         "payment_confirmed_at": order.get("payment_confirmed_at"),
         "analysis_started_at": order.get("analysis_started_at"),
         "completed_at": order.get("completed_at"),
         "deadline_at": order.get("deadline_at"),
+        **delay,
         "admin_notes": order.get("admin_notes"),
         "message": order.get("message"),
         "next_step": _order_next_step(order),
     }
+
+
+def _summary(orders: list[dict[str, Any]]) -> dict[str, int]:
+    summary = {"total": len(orders), "overdue": 0, "urgent": 0, "waiting_payment": 0, "in_progress": 0, "completed": 0}
+    for order in orders:
+        if order.get("priority") == "overdue":
+            summary["overdue"] += 1
+        if order.get("priority") == "urgent":
+            summary["urgent"] += 1
+        if order.get("priority") == "waiting_payment":
+            summary["waiting_payment"] += 1
+        if (order.get("status") or "").lower() in {"in_progress", "analysis_started", "processing"}:
+            summary["in_progress"] += 1
+        if order.get("completed_at") or (order.get("status") or "").lower() in {"completed", "done", "finished", "delivered"}:
+            summary["completed"] += 1
+    return summary
 
 
 def lookup_orders(request: OrderLookupRequest) -> dict[str, Any]:
@@ -81,7 +177,7 @@ def lookup_orders(request: OrderLookupRequest) -> dict[str, Any]:
     first_name = _clean(request.first_name)
     last_name = _clean(request.last_name)
     query = _clean(request.query)
-    limit = max(1, min(request.limit, 50))
+    limit = max(1, min(request.limit, 100))
 
     client = _supabase()
     try:
@@ -109,11 +205,13 @@ def lookup_orders(request: OrderLookupRequest) -> dict[str, Any]:
         ) from exc
 
     orders = [_format_order(order) for order in (result.data or [])]
+    orders.sort(key=lambda item: {"overdue": 0, "urgent": 1, "high": 2, "waiting_payment": 3, "normal": 4, "closed": 5}.get(item.get("priority"), 9))
     search_mode = "latest" if not any([email, phone, first_name, last_name, query]) else "filtered"
     return {
         "success": True,
         "search_mode": search_mode,
         "count": len(orders),
+        "summary": _summary(orders),
         "orders": orders,
         "message": "No matching orders found." if not orders else "Orders returned.",
     }
