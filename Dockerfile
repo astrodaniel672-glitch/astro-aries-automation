@@ -9,4 +9,4 @@ COPY . /app
 
 ENV PYTHONUNBUFFERED=1
 
-CMD ["sh", "-c", "uvicorn backend.app:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "uvicorn backend.app_master:app --host 0.0.0.0 --port ${PORT:-8000}"]
