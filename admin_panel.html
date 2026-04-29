@@ -22,7 +22,7 @@
 
     <section class="card wide">
       <h2>Orders dashboard</h2>
-      <p>Automatski prikazuje poslednje porudžbine, prioritete, rok, kašnjenje i najvažniji kontekst o korisniku.</p>
+      <p>Automatski prikazuje poslednje porudžbine, izvor, prioritete, rok, kašnjenje i najvažniji kontekst o korisniku.</p>
       <div id="summary" class="summary"></div>
       <div id="ordersTable" class="reply">Učitavam porudžbine...</div>
     </section>
@@ -37,15 +37,16 @@
     </section>
 
     <section class="card">
-      <h2>Test porudžbina</h2>
-      <div class="row"><div><label>Ime</label><input id="firstName" value="Test" /></div><div><label>Email</label><input id="email" value="test@example.com" /></div></div>
-      <div class="row"><div><label>Telefon</label><input id="phone" value="+38160000000" /></div><div><label>Instagram</label><input id="instagram" value="test_astro" /></div></div>
-      <label>Usluga</label><select id="serviceName"><option>Natalna Karta + Predikcije</option><option>Natalna Karta</option><option>Sinastrija</option><option>Predikcije</option></select>
-      <div class="row"><div><label>Cena</label><input id="price" value="3300" /></div><div><label>Status</label><input id="status" value="received" /></div></div>
-      <div class="row"><div><label>Datum</label><input id="birthDate" value="08.05.1967" /></div><div><label>Vreme</label><input id="birthTime" value="10:10" /></div></div>
-      <label>Mesto</label><input id="birthPlace" value="Split, Hrvatska" />
-      <label>Poruka / o korisniku</label><textarea id="message">Test porudžbina iz Admin panela.</textarea>
-      <div class="actions"><button onclick="createOrderViaAgent()">Kreiraj test porudžbinu</button></div>
+      <h2>Nova porudžbina</h2>
+      <div class="row"><div><label>Ime</label><input id="firstName" placeholder="Ime klijenta" /></div><div><label>Email</label><input id="email" placeholder="email ako postoji" /></div></div>
+      <div class="row"><div><label>Telefon</label><input id="phone" placeholder="telefon ako postoji" /></div><div><label>Instagram</label><input id="instagram" placeholder="instagram profil" /></div></div>
+      <label>Izvor porudžbine</label><select id="orderSource"><option>Instagram</option><option>Sajt</option><option>WhatsApp</option><option>Facebook</option><option>Email</option><option>Ručni unos</option><option>Drugo</option></select>
+      <label>Usluga</label><select id="serviceName"><option>Natalna Karta + Predikcije</option><option>Natalna Karta</option><option>Sinastrija</option><option>Predikcije</option><option>3 pitanja</option><option>5 pitanja</option><option>10 pitanja</option></select>
+      <div class="row"><div><label>Cena</label><input id="price" value="3300" /></div><div><label>Status</label><select id="status"><option value="received">received</option><option value="paid">paid</option><option value="in_progress">in_progress</option><option value="completed">completed</option></select></div></div>
+      <div class="row"><div><label>Datum</label><input id="birthDate" placeholder="DD.MM.YYYY" /></div><div><label>Vreme</label><input id="birthTime" placeholder="HH:MM" /></div></div>
+      <label>Mesto</label><input id="birthPlace" placeholder="mesto rođenja" />
+      <label>Poruka / o korisniku</label><textarea id="message" placeholder="Šta klijenta muči, šta konkretno pita, emotivna/poslovna situacija, posebne napomene..."></textarea>
+      <div class="actions"><button onclick="createOrderViaAgent()">Kreiraj porudžbinu</button></div>
     </section>
 
     <section class="card wide">
@@ -72,12 +73,14 @@ function lookupPayload(){return{email:document.getElementById('lookupEmail').val
 async function lookupOrders(){const data=await run('orders.lookup',()=>request('/orders/lookup',{method:'POST',body:JSON.stringify(lookupPayload())}));renderOrders(data);return data}
 function clearLookup(){['lookupEmail','lookupPhone','lookupFirstName','lookupLastName','lookupQuery'].forEach(id=>document.getElementById(id).value='');loadDashboard()}
 async function loadDashboard(){try{const data=await request('/orders/lookup',{method:'POST',body:JSON.stringify({limit:50,include_tests:false})});renderOrders(data);write(data)}catch(e){document.getElementById('ordersTable').textContent='Greška pri učitavanju porudžbina. Pogledaj detaljan rezultat.';write({success:false,error:e})}}
-function renderOrders(data){const summary=data.summary||{};document.getElementById('summary').innerHTML=['total','overdue','urgent','waiting_payment','in_progress','completed'].map(k=>`<div class="pill"><strong>${summary[k]??0}</strong>${labelSummary(k)}</div>`).join('');const orders=data.orders||[];if(!orders.length){document.getElementById('ordersTable').innerHTML='Nema realnih porudžbina koje backend vidi u tabeli orders. Test porudžbine su sakrivene.';return}document.getElementById('ordersTable').innerHTML=`<div class="muted">Sakrivenih test porudžbina: ${data.hidden_test_orders||0}</div><table><thead><tr><th>Prioritet</th><th>Klijent</th><th>Usluga</th><th>O korisniku</th><th>Status</th><th>Rok</th><th>Sledeći korak</th></tr></thead><tbody>${orders.map(o=>`<tr><td><span class="tag ${o.priority||'normal'}">${o.priority||'normal'}</span></td><td><b>${esc(o.client||'-')}</b><br>${esc(o.email||'')}<br>${esc(o.phone||'')}</td><td>${esc(o.service_name||'-')}<br><span class="muted">${esc(o.birth_date||'')} ${esc(o.birth_time||'')} ${esc(o.birth_place||'')}</span></td><td class="about">${formatAbout(o)}</td><td>${esc(o.status||'-')}</td><td>${formatDeadline(o)}</td><td>${esc(o.next_step||'-')}</td></tr>`).join('')}</tbody></table>`}
+function renderOrders(data){const summary=data.summary||{};document.getElementById('summary').innerHTML=['total','overdue','urgent','waiting_payment','in_progress','completed'].map(k=>`<div class="pill"><strong>${summary[k]??0}</strong>${labelSummary(k)}</div>`).join('');const orders=data.orders||[];if(!orders.length){document.getElementById('ordersTable').innerHTML='Nema realnih porudžbina koje backend vidi u tabeli orders. Test porudžbine su sakrivene.';return}document.getElementById('ordersTable').innerHTML=`<div class="muted">Sakrivenih test porudžbina: ${data.hidden_test_orders||0}</div><table><thead><tr><th>Prioritet</th><th>Klijent</th><th>Izvor</th><th>Usluga</th><th>O korisniku</th><th>Status</th><th>Rok</th><th>Sledeći korak</th></tr></thead><tbody>${orders.map(o=>`<tr><td><span class="tag ${o.priority||'normal'}">${o.priority||'normal'}</span></td><td><b>${esc(o.client||'-')}</b><br>${esc(o.email||'')}<br>${esc(o.phone||'')}</td><td>${esc(orderSource(o)||'-')}</td><td>${esc(o.service_name||'-')}<br><span class="muted">${esc(o.birth_date||'')} ${esc(o.birth_time||'')} ${esc(o.birth_place||'')}</span></td><td class="about">${formatAbout(o)}</td><td>${esc(o.status||'-')}</td><td>${formatDeadline(o)}</td><td>${esc(o.next_step||'-')}</td></tr>`).join('')}</tbody></table>`}
 function labelSummary(k){return{total:'ukupno',overdue:'kasni',urgent:'hitno',waiting_payment:'čeka uplatu',in_progress:'u izradi',completed:'završeno'}[k]||k}
 function esc(v){return String(v??'').replace(/[&<>"]/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]))}
-function formatAbout(o){const text=o.about_user||o.message||o.admin_notes||'';if(!text)return '<span class="muted">Nema dodatne beleške.</span>';return esc(text).replace(/ \| /g,'<br><span class="muted">—</span> ')}
+function orderSource(o){return o.order_source||o.source||extractSource(o.about_user)||extractSource(o.message)}
+function extractSource(text){if(!text)return '';const m=String(text).match(/Izvor porudžbine:\s*([^\n|]+)/i);return m?m[1].trim():''}
+function formatAbout(o){const text=o.about_user||o.message||o.admin_notes||'';if(!text)return '<span class="muted">Nema dodatne beleške.</span>';return esc(text).replace(/ \| /g,'<br><span class="muted">—</span> ').replace(/\n/g,'<br>')}
 function formatDeadline(o){let s=o.deadline_at_computed||o.deadline_at||'-';if(o.is_late)return `${esc(s)}<br><span class="tag overdue">kasni ${o.days_late} dana</span>`;if(o.days_left!==null&&o.days_left!==undefined)return `${esc(s)}<br><span class="tag ${o.days_left<=1?'urgent':'normal'}">još ${o.days_left} dana</span>`;return esc(s)}
-function collectOrder(){return{first_name:document.getElementById('firstName').value,email:document.getElementById('email').value,phone:document.getElementById('phone').value,instagram_username:document.getElementById('instagram').value,service_name:document.getElementById('serviceName').value,price_rsd:Number(document.getElementById('price').value||0),birth_date:document.getElementById('birthDate').value,birth_time:document.getElementById('birthTime').value,birth_place:document.getElementById('birthPlace').value,message:document.getElementById('message').value,status:document.getElementById('status').value||'received'}}
+function collectOrder(){return{first_name:document.getElementById('firstName').value,email:document.getElementById('email').value||null,phone:document.getElementById('phone').value||null,instagram_username:document.getElementById('instagram').value||null,order_source:document.getElementById('orderSource').value,service_name:document.getElementById('serviceName').value,price_rsd:Number(document.getElementById('price').value||0),birth_date:document.getElementById('birthDate').value,birth_time:document.getElementById('birthTime').value,birth_place:document.getElementById('birthPlace').value,message:document.getElementById('message').value,status:document.getElementById('status').value||'received'}}
 async function createOrderViaAgent(){const data=await run('orders.create',()=>request('/agents/run',{method:'POST',body:JSON.stringify({task_name:'orders.create',payload:collectOrder()})}));await loadDashboard();return data}
 function dmPayload(){return{message:document.getElementById('dmMessage').value,client_name:document.getElementById('dmName').value||null,instagram_username:document.getElementById('dmInstagram').value||'test_astro',channel:'instagram_dm'}}
 async function runAssistantTurn(){dmReply.textContent='Assistant Turn radi...';const data=await run('assistant.turn',()=>request('/assistant/turn',{method:'POST',body:JSON.stringify(dmPayload())}));lastReply=data.reply||'';dmReply.textContent=lastReply||'Nema odgovora.'}
