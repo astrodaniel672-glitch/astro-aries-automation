@@ -15,6 +15,7 @@ try:
     )
     from backend.intent_extractor import ExtractRequest, extract_payload, merge_state
     from backend.master_assistant import AssistantRequest, assistant_respond_payload
+    from backend.order_status import OrderLookupRequest, lookup_orders
 except ModuleNotFoundError:
     from app import app
     from assistant_turn import AssistantTurnRequest, assistant_turn_payload
@@ -28,6 +29,7 @@ except ModuleNotFoundError:
     )
     from intent_extractor import ExtractRequest, extract_payload, merge_state
     from master_assistant import AssistantRequest, assistant_respond_payload
+    from order_status import OrderLookupRequest, lookup_orders
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -70,6 +72,11 @@ def intent_extract(request: ExtractRequest):
     extraction = extract_payload(request)
     extraction["state"] = merge_state(request.current_state, extraction)
     return extraction
+
+
+@app.post("/orders/lookup")
+def orders_lookup(request: OrderLookupRequest):
+    return lookup_orders(request)
 
 
 @app.post("/memory/message")
