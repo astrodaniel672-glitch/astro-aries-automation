@@ -16,6 +16,7 @@ class OrderLookupRequest(BaseModel):
     last_name: str | None = None
     query: str | None = None
     limit: int = 25
+    include_tests: bool = False
 
 
 def _supabase():
@@ -43,8 +44,7 @@ def _parse_dt(value: Any) -> datetime | None:
     if isinstance(value, datetime):
         return value
     try:
-        text = str(value).replace("Z", "+00:00")
-        return datetime.fromisoformat(text)
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except Exception:
         return None
 
@@ -72,6 +72,40 @@ def _computed_deadline(order: dict[str, Any]) -> datetime | None:
 def _is_done(order: dict[str, Any]) -> bool:
     status = (order.get("status") or "").lower()
     return bool(order.get("completed_at")) or status in {"completed", "done", "finished", "delivered"}
+
+
+def _is_test_order(order: dict[str, Any]) -> bool:
+    haystack = " ".join(
+        str(order.get(k) or "")
+        for k in ["status", "email", "first_name", "last_name", "service_name", "message", "birth_place"]
+    ).lower()
+    return any(token in haystack for token in ["test", "auto_test", "automation test", "agent control panel"])
+
+
+def _about_user(order: dict[str, Any]) -> str | None:
+    pieces: list[str] = []
+    questions = order.get("questions")
+    message = order.get("message")
+    admin_notes = order.get("admin_notes")
+    ai_response = order.get("ai_response")
+    marital_status = order.get("marital_status")
+    employment = order.get("employment")
+
+    if marital_status:
+        pieces.append(f"Bračni status: {marital_status}")
+    if employment:
+        pieces.append(f"Posao: {employment}")
+    if questions:
+        pieces.append(f"Pitanja/tema: {questions}")
+    if message:
+        pieces.append(f"Poruka: {message}")
+    if admin_notes:
+        pieces.append(f"Beleška: {admin_notes}")
+    if ai_response:
+        pieces.append(f"AI napomena: {ai_response}")
+    if not pieces:
+        return None
+    return " | ".join(pieces)
 
 
 def _order_next_step(order: dict[str, Any]) -> str:
@@ -151,6 +185,11 @@ def _format_order(order: dict[str, Any]) -> dict[str, Any]:
         **delay,
         "admin_notes": order.get("admin_notes"),
         "message": order.get("message"),
+        "questions": order.get("questions"),
+        "marital_status": order.get("marital_status"),
+        "employment": order.get("employment"),
+        "about_user": _about_user(order),
+        "is_test": _is_test_order(order),
         "next_step": _order_next_step(order),
     }
 
@@ -204,13 +243,19 @@ def lookup_orders(request: OrderLookupRequest) -> dict[str, Any]:
             detail={"message": "Failed to lookup orders.", "supabase_error": _sanitize_error(exc)},
         ) from exc
 
-    orders = [_format_order(order) for order in (result.data or [])]
+    raw_orders = result.data or []
+    all_count = len(raw_orders)
+    formatted_all = [_format_order(order) for order in raw_orders]
+    hidden_tests = len([o for o in formatted_all if o.get("is_test")])
+    orders = formatted_all if request.include_tests else [o for o in formatted_all if not o.get("is_test")]
     orders.sort(key=lambda item: {"overdue": 0, "urgent": 1, "high": 2, "waiting_payment": 3, "normal": 4, "closed": 5}.get(item.get("priority"), 9))
     search_mode = "latest" if not any([email, phone, first_name, last_name, query]) else "filtered"
     return {
         "success": True,
         "search_mode": search_mode,
         "count": len(orders),
+        "all_count_before_test_filter": all_count,
+        "hidden_test_orders": 0 if request.include_tests else hidden_tests,
         "summary": _summary(orders),
         "orders": orders,
         "message": "No matching orders found." if not orders else "Orders returned.",
