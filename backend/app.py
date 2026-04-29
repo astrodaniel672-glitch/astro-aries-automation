@@ -21,6 +21,23 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 app = FastAPI(title="ASTRO ARIES STUDIO Automation")
 orchestrator = create_default_orchestrator()
 
+SERVICE_PRICES = {
+    "natal_predikcije": {"label": "Natalna Karta + Predikcije", "price_rsd": 3300},
+    "natal": {"label": "Natalna Karta", "price_rsd": 2000},
+    "sinastrija": {"label": "Sinastrija", "price_rsd": 2400},
+    "predikcije": {"label": "Predikcije", "price_rsd": 1500},
+    "tri_pitanja": {"label": "3 Pitanja", "price_rsd": 900},
+    "pet_pitanja": {"label": "5 Pitanja", "price_rsd": 1400},
+    "deset_pitanja": {"label": "10 Pitanja", "price_rsd": 2700},
+}
+
+PAYMENT_REPLY = (
+    "Plaćanje se dogovara nakon potvrde porudžbine. Kada izaberete uslugu i pošaljete podatke, "
+    "šaljem vam tačne instrukcije za uplatu i potvrdu termina izrade."
+)
+
+DELIVERY_REPLY = "Rok izrade je do 5 radnih dana od potvrde uplate i kompletnih podataka."
+
 
 class OrderRequest(BaseModel):
     first_name: str
@@ -65,6 +82,13 @@ class SetupRunRequest(BaseModel):
     test_order: Optional[dict[str, Any]] = None
 
 
+class ClientIntakeRequest(BaseModel):
+    message: str
+    client_name: Optional[str] = None
+    instagram_username: Optional[str] = None
+    channel: str = "instagram_dm"
+
+
 def get_supabase_client() -> Client:
     supabase_url = os.getenv("SUPABASE_URL")
     service_role_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
@@ -92,6 +116,18 @@ def _missing_column_from_error(exc: Exception) -> Optional[str]:
 
 def _env_is_set(name: str) -> bool:
     return bool((os.getenv(name) or "").strip())
+
+
+def _normalize_text(value: str) -> str:
+    text = value.lower()
+    replacements = {"č": "c", "ć": "c", "š": "s", "đ": "dj", "ž": "z"}
+    for src, dst in replacements.items():
+        text = text.replace(src, dst)
+    return text
+
+
+def _has_any(text: str, words: list[str]) -> bool:
+    return any(word in text for word in words)
 
 
 def _config_status_payload() -> dict[str, Any]:
@@ -187,9 +223,103 @@ def _create_order(order: OrderRequest) -> dict[str, Any]:
     return _insert_order_payload(supabase, payload)
 
 
+def _price_text() -> str:
+    return (
+        "Cene su: Natalna karta 2.000 RSD, Natalna karta + predikcije 3.300 RSD, "
+        "Predikcije 1.500 RSD, Sinastrija 2.400 RSD, 3 pitanja 900 RSD, "
+        "5 pitanja 1.400 RSD i 10 pitanja 2.700 RSD."
+    )
+
+
+def _service_from_message(text: str) -> Optional[dict[str, Any]]:
+    if _has_any(text, ["sinastr", "upored", "partner", "veza"]):
+        return SERVICE_PRICES["sinastrija"]
+    if _has_any(text, ["predikc", "godis", "buduc", "tranzit"]):
+        return SERVICE_PRICES["natal_predikcije"]
+    if _has_any(text, ["natal", "karta", "horoskop"]):
+        return SERVICE_PRICES["natal"]
+    if _has_any(text, ["3 pitanja", "tri pitanja"]):
+        return SERVICE_PRICES["tri_pitanja"]
+    if _has_any(text, ["5 pitanja", "pet pitanja"]):
+        return SERVICE_PRICES["pet_pitanja"]
+    if _has_any(text, ["10 pitanja", "deset pitanja"]):
+        return SERVICE_PRICES["deset_pitanja"]
+    return None
+
+
+def _client_intake_response(request: ClientIntakeRequest) -> dict[str, Any]:
+    original = request.message.strip()
+    text = _normalize_text(original)
+    service = _service_from_message(text)
+    client = (request.client_name or "").strip()
+    greeting = f"{client}, " if client else ""
+
+    intent = "general"
+    priority = "normal"
+    action = "reply_only"
+
+    if _has_any(text, ["cena", "koliko", "kosta", "cenovnik", "paket"]):
+        intent = "pricing"
+        reply = (
+            f"{greeting}naravno. {_price_text()} "
+            "Za porudžbinu su mi potrebni datum, tačno vreme i mesto rođenja. "
+            "Ako želite najkompletniju opciju, preporuka je Natalna karta + predikcije jer daje i osnovu karaktera i konkretan period pred vama."
+        )
+    elif _has_any(text, ["poruc", "naruc", "hoc", "zelim", "kup", "radila bih", "radio bih"]):
+        intent = "order_intent"
+        priority = "high"
+        action = "collect_birth_data"
+        chosen = service["label"] if service else "analizu"
+        price = f" Cena za ovu uslugu je {int(service['price_rsd'])} RSD." if service else ""
+        reply = (
+            f"{greeting}može, upisaću porudžbinu za {chosen}.{price} "
+            "Pošaljite mi datum rođenja, tačno vreme rođenja i mesto rođenja. "
+            "Ako je sinastrija, pošaljite iste podatke i za drugu osobu. Nakon toga potvrđujem porudžbinu i šaljem instrukcije za uplatu."
+        )
+    elif _has_any(text, ["plat", "uplata", "racun", "paypal", "western", "payoneer"]):
+        intent = "payment"
+        priority = "high"
+        action = "send_payment_instructions_after_confirmation"
+        reply = f"{greeting}{PAYMENT_REPLY}"
+    elif _has_any(text, ["kada", "stize", "gotov", "rok", "isporuk", "cekam"]):
+        intent = "delivery_status"
+        priority = "high"
+        action = "check_order_status"
+        reply = (
+            f"{greeting}{DELIVERY_REPLY} Ako ste već poručili, pošaljite mi ime pod kojim je porudžbina ili email/Instagram profil, pa proveravam status."
+        )
+    elif _has_any(text, ["podaci", "sta treba", "sta saljem", "vreme rodjenja", "mesto rodjenja"]):
+        intent = "required_data"
+        action = "collect_birth_data"
+        reply = (
+            f"{greeting}za izradu su potrebni: datum rođenja, tačno vreme rođenja i mesto rođenja. "
+            "Za sinastriju trebaju isti podaci za obe osobe. Ako vreme nije potpuno sigurno, napišite približno i obavezno naglasite da nije sigurno."
+        )
+    else:
+        reply = (
+            f"{greeting}hvala vam na poruci. Mogu da vam pomognem oko natalne karte, predikcija, sinastrije ili konkretnih pitanja. "
+            "Najbrže je da napišete šta želite da poručite i pošaljete datum, vreme i mesto rođenja."
+        )
+
+    return {
+        "success": True,
+        "agent": "client_intake.respond",
+        "intent": intent,
+        "priority": priority,
+        "recommended_action": action,
+        "detected_service": service,
+        "reply": reply,
+        "safe_to_send": True,
+        "channel": request.channel,
+        "original_message": original,
+    }
+
+
 def _run_agent_task(task_name: str, payload: dict[str, Any]) -> dict[str, Any]:
     if task_name == "orders.create":
         return _create_order(OrderRequest(**payload))
+    if task_name == "client_intake.respond":
+        return _client_intake_response(ClientIntakeRequest(**payload))
 
     return orchestrator.run(task_name, payload)
 
@@ -228,13 +358,7 @@ def _run_setup_sequence(request: SetupRunRequest) -> dict[str, Any]:
     steps.append(_step("agents.list", "passed", {"count": len(agents), "agents": agents}))
 
     if not config["ready"]["orders"]:
-        steps.append(
-            _step(
-                "orders.ready",
-                "blocked",
-                "Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the runtime environment.",
-            )
-        )
+        steps.append(_step("orders.ready", "blocked", "Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY in the runtime environment."))
         return {"success": False, "mode": "dry_run" if request.dry_run else "live", "steps": steps}
 
     steps.append(_step("orders.ready", "passed", "Supabase order environment is configured."))
@@ -256,13 +380,7 @@ def _run_setup_sequence(request: SetupRunRequest) -> dict[str, Any]:
             steps.append(_step("orders.create_test_order", "failed", exc.detail))
             return {"success": False, "mode": "live", "steps": steps}
     else:
-        steps.append(
-            _step(
-                "orders.create_test_order",
-                "skipped",
-                "Dry run only. Send create_test_order=true and dry_run=false for live Supabase insert.",
-            )
-        )
+        steps.append(_step("orders.create_test_order", "skipped", "Dry run only. Send create_test_order=true and dry_run=false for live Supabase insert."))
 
     return {"success": True, "mode": "dry_run" if request.dry_run else "live", "steps": steps}
 
@@ -293,6 +411,11 @@ def list_agents() -> list[dict[str, Any]]:
 @app.post("/agents/run")
 def run_agent(request: AgentRunRequest) -> dict[str, Any]:
     return _run_agent_task(request.task_name, request.payload)
+
+
+@app.post("/client-intake/respond")
+def client_intake_respond(request: ClientIntakeRequest) -> dict[str, Any]:
+    return _client_intake_response(request)
 
 
 @app.post("/setup/run")
