@@ -4,6 +4,7 @@ from fastapi.responses import FileResponse
 
 try:
     from backend.app import app
+    from backend.assistant_turn import AssistantTurnRequest, assistant_turn_payload
     from backend.conversation_memory import (
         ConversationLoadRequest,
         ConversationMessage,
@@ -16,6 +17,7 @@ try:
     from backend.master_assistant import AssistantRequest, assistant_respond_payload
 except ModuleNotFoundError:
     from app import app
+    from assistant_turn import AssistantTurnRequest, assistant_turn_payload
     from conversation_memory import (
         ConversationLoadRequest,
         ConversationMessage,
@@ -56,6 +58,11 @@ def assistant_respond(request: AssistantRequest):
     response["extraction"] = extraction
     response["state"] = merged_state
     return response
+
+
+@app.post("/assistant/turn")
+def assistant_turn(request: AssistantTurnRequest):
+    return assistant_turn_payload(request)
 
 
 @app.post("/intent/extract")
