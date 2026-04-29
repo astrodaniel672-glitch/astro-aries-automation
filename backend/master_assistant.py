@@ -3,11 +3,14 @@ from __future__ import annotations
 import json
 import os
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException
 from openai import OpenAI
 from pydantic import BaseModel
+
+RULES_PATH = Path(__file__).resolve().parent / "astro_aries_business_rules.md"
 
 
 class AssistantRequest(BaseModel):
@@ -33,44 +36,27 @@ def _get_openai_client() -> OpenAI:
     return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
+def _load_business_rules() -> str:
+    try:
+        return RULES_PATH.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return "Business rules file is missing. Do not invent business facts."
+
+
 def _master_prompt(short_mode: bool) -> str:
     length_rule = "Odgovor za klijenta neka bude 1-4 kratke rečenice." if short_mode else "Odgovor prilagodi kanalu i pitanju."
+    business_rules = _load_business_rules()
     return f"""
 Ti si ASTRO ARIES MASTER AI ASSISTANT, glavni profesionalni asistent za ASTRO ARIES STUDIO.
 
-Radiš kao jedan pametan asistent koji razume poruke, kontekst, nameru, poslovni cilj i kanal komunikacije. Ne ponašaš se kao keyword bot.
+Koristi BUSINESS RULES kao izvor istine. Ako nešto nije u pravilima ili u dodatnom kontekstu, ne izmišljaj. Odgovori neutralno i traži potvrdu.
 
-Stil:
-- srpski, ekavica, prirodno i ljudski
-- pišeš kao Daniel iz Astro Aries Studija: jasno, konkretno, toplo, prodajno, ali bez napadnosti
-- bez rečenica koje zvuče kao AI ili korisnička podrška iz šablona
-- ne objašnjavaš da si AI
-- ne nabrajaš sve cene osim kada osoba traži ceo cenovnik
-- ako nemaš dovoljno podataka, traži samo ono što fali
-- {length_rule}
+Stil: srpski, ekavica, prirodno, ljudski, kao Daniel iz Astro Aries Studija. Bez AI tona, bez šablonskog korisničkog servisa, bez fraza poput "hvala na upitu" i "kao AI". {length_rule}
 
-Usluge i cene:
-Natalna karta: 2.000 RSD.
-Natalna karta + predikcije: 3.300 RSD.
-Predikcije: 1.500 RSD.
-Sinastrija: 2.400 RSD.
-3 pitanja: 900 RSD.
-5 pitanja: 1.400 RSD.
-10 pitanja: 2.700 RSD.
-
-Za izradu su potrebni datum rođenja, tačno vreme rođenja i mesto rođenja. Za sinastriju trebaju isti podaci za obe osobe.
-Rok je do 5 radnih dana od potvrde uplate i kompletnih podataka.
-Instrukcije za uplatu šalju se tek nakon potvrde porudžbine i podataka.
-
-Stroga pravila istinitosti:
-- Ne izmišljaj način rada, lokaciju, konsultacije uživo, online konsultacije, slobodne termine, popuste, bankovne podatke, linkove ili status porudžbine.
-- Ako korisnik pita da li ima konsultacija uživo, a u kontekstu nema potvrđenog pravila, odgovori neutralno: način konsultacije se potvrđuje u poruci i zavisi od vrste analize/termina. Nemoj tvrditi da se radi isključivo online ili da sigurno postoji uživo.
-- Ako nemaš potvrđenu informaciju, reci kratko da se to potvrđuje direktno i preusmeri na sledeći korak.
-- safe_to_send postavi na false i needs_human_review na true kad god pitanje traži poslovnu informaciju koja nije eksplicitno data u promptu ili kontekstu.
-
-Ako korisnik pita status porudžbine, ne nagađaj. Traži ime, email ili Instagram profil, osim ako su već dati u kontekstu.
-Ako korisnik traži astrološku procenu, ne tvrdi da si izračunao kartu ako nemaš proračun. Možeš ponuditi sledeći korak.
-Ako korisnik daje datum/vreme/mesto, prepoznaj to kao podatke za rođenje.
+BUSINESS RULES:
+---
+{business_rules}
+---
 
 Vrati isključivo JSON objekat sa ključevima:
 intent, priority, recommended_action, detected_service, reply, safe_to_send, needs_human_review, missing_data, tool_to_call.
@@ -101,7 +87,7 @@ def assistant_respond_payload(request: AssistantRequest) -> dict[str, Any]:
                 {"role": "system", "content": _master_prompt(short_mode)},
                 {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
             ],
-            temperature=0.35,
+            temperature=0.3,
             response_format={"type": "json_object"},
         )
         data = json.loads(response.choices[0].message.content or "{}")
