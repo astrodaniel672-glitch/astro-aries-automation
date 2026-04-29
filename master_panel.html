@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="sr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ASTRO ARIES MASTER ASSISTANT</title>
+  <style>
+    :root { --bg:#090815; --card:rgba(255,255,255,.075); --line:rgba(242,210,122,.22); --text:#f8f2df; --muted:#c7b98d; --gold:#d6a94a; --gold2:#f2d27a; }
+    *{box-sizing:border-box} body{margin:0;min-height:100vh;background:radial-gradient(circle at top left,rgba(214,169,74,.22),transparent 34rem),radial-gradient(circle at bottom right,rgba(110,80,210,.22),transparent 36rem),var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:26px}.wrap{max-width:1100px;margin:0 auto}h1{font-size:clamp(28px,4vw,46px);margin:0;letter-spacing:.04em}p{color:var(--muted)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}.card{background:linear-gradient(180deg,var(--card),rgba(255,255,255,.045));border:1px solid var(--line);border-radius:24px;padding:20px;box-shadow:0 24px 80px rgba(0,0,0,.45)}.wide{grid-column:1/-1}label{display:block;margin:12px 0 7px;color:var(--muted);font-weight:700;font-size:13px}input,textarea,select{width:100%;border:1px solid rgba(242,210,122,.25);background:rgba(0,0,0,.25);color:var(--text);border-radius:14px;padding:12px 13px;outline:none;font-size:14px}textarea{min-height:160px;resize:vertical}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}button{border:0;border-radius:14px;padding:12px 15px;cursor:pointer;color:#130d02;background:linear-gradient(135deg,var(--gold2),var(--gold));font-weight:800}button.secondary{color:var(--text);background:rgba(255,255,255,.1);border:1px solid var(--line)}pre,.reply{white-space:pre-wrap;word-break:break-word;background:rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:16px;min-height:160px;max-height:520px;overflow:auto;color:#f7e7bd}.reply{font-size:16px;line-height:1.55;color:#fff5dc}.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:760px){body{padding:16px}.grid,.row{grid-template-columns:1fr}.wide{grid-column:auto}}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>ASTRO ARIES MASTER ASSISTANT</h1>
+    <p>Jedan glavni AI asistent. Razume poruku, kanal, kontekst i bira sledeću akciju.</p>
+    <div class="grid">
+      <section class="card wide">
+        <label>Backend URL</label>
+        <input id="baseUrl" value="https://astro-aries-automation.onrender.com" />
+        <div class="actions"><button onclick="saveUrl()">Sačuvaj</button><button class="secondary" onclick="checkStatus()">Proveri AI status</button></div>
+      </section>
+      <section class="card">
+        <label>Kanal</label>
+        <select id="channel"><option value="instagram_dm">Instagram DM</option><option value="instagram_comment">Instagram komentar</option><option value="admin">Admin</option><option value="email">Email</option></select>
+        <div class="row"><div><label>Ime klijenta</label><input id="clientName" placeholder="npr. Maja" /></div><div><label>Instagram</label><input id="instagram" placeholder="npr. maja_77" /></div></div>
+        <label>Poruka</label>
+        <textarea id="message">Koliko košta natalna karta i šta treba da pošaljem?</textarea>
+        <div class="actions"><button onclick="askMaster()">Pokreni Master AI</button><button class="secondary" onclick="copyReply()">Kopiraj odgovor</button></div>
+      </section>
+      <section class="card">
+        <label>Gotov odgovor</label>
+        <div id="reply" class="reply">Ovde će se pojaviti odgovor.</div>
+      </section>
+      <section class="card wide">
+        <label>Detaljan rezultat</label>
+        <pre id="output">Spremno.</pre>
+      </section>
+    </div>
+  </div>
+<script>
+const baseUrl=document.getElementById('baseUrl');const output=document.getElementById('output');const reply=document.getElementById('reply');let lastReply='';
+function norm(){return baseUrl.value.trim().replace(/\/$/,'')}function saveUrl(){localStorage.setItem('astro_master_url',norm());write({success:true,baseUrl:norm()})}function load(){baseUrl.value=localStorage.getItem('astro_master_url')||baseUrl.value}function write(x){output.textContent=typeof x==='string'?x:JSON.stringify(x,null,2)}
+async function req(path,opt={}){const r=await fetch(norm()+path,{...opt,headers:{'Content-Type':'application/json',...(opt.headers||{})}});const t=await r.text();let d;try{d=JSON.parse(t)}catch{d=t}if(!r.ok)throw{status:r.status,data:d};return d}
+async function checkStatus(){write('Proveravam...');try{write(await req('/config/status'))}catch(e){write({success:false,error:e})}}
+async function askMaster(){reply.textContent='Master AI razmišlja...';write('Pokrećem Master AI...');const payload={message:document.getElementById('message').value,channel:document.getElementById('channel').value,client_name:document.getElementById('clientName').value||null,instagram_username:document.getElementById('instagram').value||null,conversation_history:[],context:{}};try{const data=await req('/assistant/respond',{method:'POST',body:JSON.stringify(payload)});lastReply=data.reply||'';reply.textContent=lastReply||'Nema odgovora.';write(data)}catch(e){reply.textContent='Greška. Pogledaj detaljan rezultat.';write({success:false,error:e})}}
+async function copyReply(){if(!lastReply)return;await navigator.clipboard.writeText(lastReply);write({success:true,message:'Odgovor kopiran.',reply:lastReply})}
+load();
+</script>
+</body>
+</html>
