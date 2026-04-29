@@ -70,6 +70,19 @@ def create_default_orchestrator() -> OrchestratorAgent:
 
     orchestrator.register(
         AgentTask(
+            name="client_intake.respond",
+            description="Classify a client DM/comment and prepare a clear sales-oriented Serbian reply.",
+            required_env=(),
+        ),
+        lambda payload: {
+            "success": False,
+            "message": "client_intake.respond is handled by backend.app /client-intake/respond endpoint.",
+            "payload_preview": payload,
+        },
+    )
+
+    orchestrator.register(
+        AgentTask(
             name="instagram.comment_reply",
             description="Prepare or send Instagram/Facebook comment replies via Meta integration.",
             required_env=("META_PAGE_TOKEN", "META_APP_SECRET"),
