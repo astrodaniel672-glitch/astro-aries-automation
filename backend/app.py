@@ -1,3 +1,4 @@
+import json
 import os
 import re
 from datetime import datetime, timezone
@@ -7,6 +8,7 @@ from typing import Any, Optional
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
+from openai import OpenAI
 from pydantic import BaseModel, EmailStr, model_validator
 from supabase import Client, create_client
 
@@ -98,6 +100,12 @@ def _env_is_set(name: str) -> bool:
     return bool((os.getenv(name) or "").strip())
 
 
+def _get_openai_client() -> OpenAI:
+    if not _env_is_set("OPENAI_API_KEY"):
+        raise HTTPException(status_code=500, detail="OpenAI is not configured. Set OPENAI_API_KEY.")
+    return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+
 def _normalize_text(value: str) -> str:
     text = value.lower()
     for src, dst in {"č": "c", "ć": "c", "š": "s", "đ": "dj", "ž": "z"}.items():
@@ -124,12 +132,22 @@ def _config_status_payload() -> dict[str, Any]:
     checks = {
         "SUPABASE_URL": _env_is_set("SUPABASE_URL"),
         "SUPABASE_SERVICE_ROLE_KEY": _env_is_set("SUPABASE_SERVICE_ROLE_KEY"),
+        "OPENAI_API_KEY": _env_is_set("OPENAI_API_KEY"),
         "META_PAGE_TOKEN": _env_is_set("META_PAGE_TOKEN"),
         "META_APP_SECRET": _env_is_set("META_APP_SECRET"),
         "GMAIL_ADDRESS": _env_is_set("GMAIL_ADDRESS"),
         "GMAIL_APP_PASSWORD": _env_is_set("GMAIL_APP_PASSWORD"),
     }
-    return {"success": True, "configured": checks, "ready": {"orders": checks["SUPABASE_URL"] and checks["SUPABASE_SERVICE_ROLE_KEY"], "meta": checks["META_PAGE_TOKEN"] and checks["META_APP_SECRET"], "email": checks["GMAIL_ADDRESS"] and checks["GMAIL_APP_PASSWORD"]}}
+    return {
+        "success": True,
+        "configured": checks,
+        "ready": {
+            "orders": checks["SUPABASE_URL"] and checks["SUPABASE_SERVICE_ROLE_KEY"],
+            "ai": checks["OPENAI_API_KEY"],
+            "meta": checks["META_PAGE_TOKEN"] and checks["META_APP_SECRET"],
+            "email": checks["GMAIL_ADDRESS"] and checks["GMAIL_APP_PASSWORD"],
+        },
+    }
 
 
 def _build_order_payload(order: OrderRequest) -> dict[str, Any]:
@@ -199,28 +217,18 @@ def _client_intake_response(request: ClientIntakeRequest) -> dict[str, Any]:
     text = _normalize_text(original)
     service = _service_from_message(text)
     prefix = _client_prefix(request.client_name)
-
     intent = "general"
     priority = "normal"
     action = "reply_only"
-
     if _has_any(text, ["cena", "koliko", "kosta", "cenovnik", "paket"]):
         intent = "pricing"
-        reply = (
-            f"{prefix}{_short_price_line(service)} "
-            "Za izradu mi trebaju datum, tačno vreme i mesto rođenja. "
-            "Ako želite samo osnovu ličnosti, dovoljna je natalna. Ako želite i šta vas čeka u narednom periodu, bolja je opcija Natal + predikcije."
-        )
+        reply = f"{prefix}{_short_price_line(service)} Za izradu mi trebaju datum, tačno vreme i mesto rođenja. Ako želite samo osnovu ličnosti, dovoljna je natalna. Ako želite i šta vas čeka u narednom periodu, bolja je opcija Natal + predikcije."
     elif _has_any(text, ["poruc", "naruc", "hoc", "zelim", "kup", "radila bih", "radio bih", "uzela bih", "uzeo bih"]):
         intent = "order_intent"
         priority = "high"
         action = "collect_birth_data"
         chosen = service or SERVICE_PRICES["natal_predikcije"]
-        reply = (
-            f"{prefix}može. Za {chosen['label']} cena je {int(chosen['price_rsd'])} RSD. "
-            "Pošaljite mi datum rođenja, tačno vreme i mesto rođenja. "
-            "Kada imam te podatke, potvrđujem porudžbinu i šaljem instrukcije za uplatu."
-        )
+        reply = f"{prefix}može. Za {chosen['label']} cena je {int(chosen['price_rsd'])} RSD. Pošaljite mi datum rođenja, tačno vreme i mesto rođenja. Kada imam te podatke, potvrđujem porudžbinu i šaljem instrukcije za uplatu."
     elif _has_any(text, ["plat", "uplata", "racun", "paypal", "western", "payoneer", "kartic"]):
         intent = "payment"
         priority = "high"
@@ -234,17 +242,86 @@ def _client_intake_response(request: ClientIntakeRequest) -> dict[str, Any]:
     elif _has_any(text, ["podaci", "sta treba", "sta saljem", "vreme rodjenja", "mesto rodjenja"]):
         intent = "required_data"
         action = "collect_birth_data"
-        reply = (
-            f"{prefix}trebaju mi datum rođenja, tačno vreme rođenja i mesto rođenja. "
-            "Za sinastriju šaljete iste podatke za obe osobe. Ako vreme nije potpuno sigurno, napišite mi približno i naglasite da nije sigurno."
-        )
+        reply = f"{prefix}trebaju mi datum rođenja, tačno vreme rođenja i mesto rođenja. Za sinastriju šaljete iste podatke za obe osobe. Ako vreme nije potpuno sigurno, napišite mi približno i naglasite da nije sigurno."
     else:
-        reply = (
-            f"{prefix}mogu da vam pogledam natal, predikcije, sinastriju ili konkretna pitanja. "
-            "Napišite mi šta vas najviše zanima i pošaljite datum, vreme i mesto rođenja, pa vam kažem koja opcija je najbolja."
-        )
-
+        reply = f"{prefix}mogu da vam pogledam natal, predikcije, sinastriju ili konkretna pitanja. Napišite mi šta vas najviše zanima i pošaljite datum, vreme i mesto rođenja, pa vam kažem koja opcija je najbolja."
     return {"success": True, "agent": "client_intake.respond", "intent": intent, "priority": priority, "recommended_action": action, "detected_service": service, "reply": reply, "safe_to_send": True, "channel": request.channel, "original_message": original}
+
+
+def _client_intake_ai_response(request: ClientIntakeRequest) -> dict[str, Any]:
+    client = _get_openai_client()
+    system_prompt = """
+Ti si specijalizovani AI DM prodajni asistent za ASTRO ARIES STUDIO. Pišeš kao Daniel, profesionalni astrolog i vlasnik studija.
+
+CILJ: razumi poruku klijenta, prepoznaj nameru, napiši kratak, ljudski, topao, precizan i prodajno jasan odgovor za Instagram DM ili komentar.
+
+STIL:
+- srpski, ekavica, prirodno, bez AI tona
+- bez fraza: "hvala na upitu", "naravno, cene su", "kao AI", "drago mi je što ste se javili"
+- ne zvuči kao cenovnik, ne nabrajaj sve cene osim ako korisnik traži cenovnik
+- odgovori kao čovek: 1-4 kratke rečenice
+- uvek vodi na sledeći korak
+- ne obećavaj ono što ne znaš
+- ne izmišljaj bankovne podatke, linkove, popuste ili rokove
+
+ZVANIČNE USLUGE I CENE:
+- Natalna karta: 2.000 RSD
+- Natalna karta + predikcije: 3.300 RSD
+- Predikcije: 1.500 RSD
+- Sinastrija: 2.400 RSD
+- 3 pitanja: 900 RSD
+- 5 pitanja: 1.400 RSD
+- 10 pitanja: 2.700 RSD
+
+PODACI ZA IZRADU:
+- datum rođenja
+- tačno vreme rođenja
+- mesto rođenja
+- za sinastriju isti podaci za obe osobe
+
+ROK: do 5 radnih dana od potvrde uplate i kompletnih podataka.
+PLAĆANJE: instrukcije za uplatu se šalju tek nakon potvrde porudžbine i podataka.
+
+Vrati isključivo JSON objekat sa ključevima:
+intent, priority, recommended_action, detected_service, reply, safe_to_send, needs_human_review.
+Intent može biti: pricing, order_intent, payment, delivery_status, required_data, astrology_question, complaint, unclear, general.
+Priority može biti: low, normal, high.
+Recommended_action može biti: reply_only, collect_birth_data, create_order_draft, check_order_status, human_review.
+""".strip()
+    user_payload = {
+        "message": request.message,
+        "client_name": request.client_name,
+        "instagram_username": request.instagram_username,
+        "channel": request.channel,
+    }
+    try:
+        response = client.chat.completions.create(
+            model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
+            ],
+            temperature=0.55,
+            response_format={"type": "json_object"},
+        )
+        content = response.choices[0].message.content or "{}"
+        data = json.loads(content)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail={"message": "AI client intake failed.", "error": _sanitize_error_message(exc)}) from exc
+
+    return {
+        "success": True,
+        "agent": "client_intake.ai_respond",
+        "intent": data.get("intent", "unclear"),
+        "priority": data.get("priority", "normal"),
+        "recommended_action": data.get("recommended_action", "reply_only"),
+        "detected_service": data.get("detected_service"),
+        "reply": data.get("reply", ""),
+        "safe_to_send": bool(data.get("safe_to_send", False)),
+        "needs_human_review": bool(data.get("needs_human_review", True)),
+        "channel": request.channel,
+        "original_message": request.message,
+    }
 
 
 def _run_agent_task(task_name: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -252,6 +329,8 @@ def _run_agent_task(task_name: str, payload: dict[str, Any]) -> dict[str, Any]:
         return _create_order(OrderRequest(**payload))
     if task_name == "client_intake.respond":
         return _client_intake_response(ClientIntakeRequest(**payload))
+    if task_name == "client_intake.ai_respond":
+        return _client_intake_ai_response(ClientIntakeRequest(**payload))
     return orchestrator.run(task_name, payload)
 
 
@@ -324,6 +403,11 @@ def run_agent(request: AgentRunRequest) -> dict[str, Any]:
 @app.post("/client-intake/respond")
 def client_intake_respond(request: ClientIntakeRequest) -> dict[str, Any]:
     return _client_intake_response(request)
+
+
+@app.post("/client-intake/ai-respond")
+def client_intake_ai_respond(request: ClientIntakeRequest) -> dict[str, Any]:
+    return _client_intake_ai_response(request)
 
 
 @app.post("/setup/run")
