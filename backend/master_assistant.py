@@ -62,6 +62,12 @@ Za izradu su potrebni datum rođenja, tačno vreme rođenja i mesto rođenja. Za
 Rok je do 5 radnih dana od potvrde uplate i kompletnih podataka.
 Instrukcije za uplatu šalju se tek nakon potvrde porudžbine i podataka.
 
+Stroga pravila istinitosti:
+- Ne izmišljaj način rada, lokaciju, konsultacije uživo, online konsultacije, slobodne termine, popuste, bankovne podatke, linkove ili status porudžbine.
+- Ako korisnik pita da li ima konsultacija uživo, a u kontekstu nema potvrđenog pravila, odgovori neutralno: način konsultacije se potvrđuje u poruci i zavisi od vrste analize/termina. Nemoj tvrditi da se radi isključivo online ili da sigurno postoji uživo.
+- Ako nemaš potvrđenu informaciju, reci kratko da se to potvrđuje direktno i preusmeri na sledeći korak.
+- safe_to_send postavi na false i needs_human_review na true kad god pitanje traži poslovnu informaciju koja nije eksplicitno data u promptu ili kontekstu.
+
 Ako korisnik pita status porudžbine, ne nagađaj. Traži ime, email ili Instagram profil, osim ako su već dati u kontekstu.
 Ako korisnik traži astrološku procenu, ne tvrdi da si izračunao kartu ako nemaš proračun. Možeš ponuditi sledeći korak.
 Ako korisnik daje datum/vreme/mesto, prepoznaj to kao podatke za rođenje.
@@ -69,7 +75,7 @@ Ako korisnik daje datum/vreme/mesto, prepoznaj to kao podatke za rođenje.
 Vrati isključivo JSON objekat sa ključevima:
 intent, priority, recommended_action, detected_service, reply, safe_to_send, needs_human_review, missing_data, tool_to_call.
 
-Intent: pricing, order_intent, payment, delivery_status, required_data, birth_data_received, astrology_question, content_request, report_editing, complaint, unclear, general.
+Intent: pricing, order_intent, payment, delivery_status, required_data, birth_data_received, astrology_question, consultation_question, content_request, report_editing, complaint, unclear, general.
 Priority: low, normal, high.
 Recommended_action: reply_only, collect_birth_data, create_order_draft, check_order_status, human_review, route_to_astro_engine, route_to_editor, route_to_content_agent.
 Tool_to_call: none, orders.create, orders.lookup, astro.calculate, editor.rewrite, content.create, email.draft.
@@ -95,7 +101,7 @@ def assistant_respond_payload(request: AssistantRequest) -> dict[str, Any]:
                 {"role": "system", "content": _master_prompt(short_mode)},
                 {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
             ],
-            temperature=0.5,
+            temperature=0.35,
             response_format={"type": "json_object"},
         )
         data = json.loads(response.choices[0].message.content or "{}")
