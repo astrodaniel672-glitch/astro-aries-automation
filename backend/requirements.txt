@@ -3,3 +3,4 @@ uvicorn
 pydantic[email]
 python-dotenv
 supabase
+openai
