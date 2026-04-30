@@ -8,6 +8,7 @@ try:
     from backend.astro_confirmation import build_confirmation_matrix
     from backend.astro_dignity import enhance_with_dignities
     from backend.astro_engine import NatalCalculationRequest, calculate_natal
+    from backend.astro_interpreter import PredictiveInterpretRequest, interpret_predictive_payload
     from backend.astro_predictive import PredictiveCalculationRequest, calculate_predictive
     from backend.astro_rules import enhance_with_rules
     from backend.astro_timeline import enhance_with_timeline
@@ -29,6 +30,7 @@ except ModuleNotFoundError:
     from astro_confirmation import build_confirmation_matrix
     from astro_dignity import enhance_with_dignities
     from astro_engine import NatalCalculationRequest, calculate_natal
+    from astro_interpreter import PredictiveInterpretRequest, interpret_predictive_payload
     from astro_predictive import PredictiveCalculationRequest, calculate_predictive
     from astro_rules import enhance_with_rules
     from astro_timeline import enhance_with_timeline
@@ -98,7 +100,6 @@ def _safe_astro_predictive(request: PredictiveCalculationRequest):
         result.setdefault("quality_warnings", []).append(warning)
         result["natal_reprocess_error"] = warning
     try:
-        # First pass cleans invalid lunar returns before confirmation_matrix uses them.
         result = enhance_with_timeline(result)
     except Exception as exc:
         warning = f"Initial lunar cleanup failed before confirmation matrix: {exc.__class__.__name__}: {str(exc)}"
@@ -112,7 +113,6 @@ def _safe_astro_predictive(request: PredictiveCalculationRequest):
         result["confirmation_matrix"] = None
         result["confirmation_matrix_error"] = warning
     try:
-        # Second pass rebuilds month_by_month with theme hits from the completed confirmation_matrix.
         result = enhance_with_timeline(result)
     except Exception as exc:
         warning = f"Month-by-month timeline failed and was skipped: {exc.__class__.__name__}: {str(exc)}"
@@ -163,6 +163,11 @@ def astro_natal(request: NatalCalculationRequest):
 @app.post("/astro/predictive")
 def astro_predictive(request: PredictiveCalculationRequest):
     return _safe_astro_predictive(request)
+
+
+@app.post("/astro/interpret-predictive")
+def astro_interpret_predictive(request: PredictiveInterpretRequest):
+    return interpret_predictive_payload(request)
 
 
 @app.post("/intent/extract")
