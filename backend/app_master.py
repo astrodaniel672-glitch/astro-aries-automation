@@ -98,6 +98,12 @@ def _safe_astro_predictive(request: PredictiveCalculationRequest):
         result.setdefault("quality_warnings", []).append(warning)
         result["natal_reprocess_error"] = warning
     try:
+        # First pass cleans invalid lunar returns before confirmation_matrix uses them.
+        result = enhance_with_timeline(result)
+    except Exception as exc:
+        warning = f"Initial lunar cleanup failed before confirmation matrix: {exc.__class__.__name__}: {str(exc)}"
+        result.setdefault("quality_warnings", []).append(warning)
+    try:
         result["confirmation_matrix"] = build_confirmation_matrix(result)
         result.setdefault("quality_warnings", []).append("confirmation_matrix added: concrete event claims require moderate or strong confirmation status.")
     except Exception as exc:
@@ -106,6 +112,7 @@ def _safe_astro_predictive(request: PredictiveCalculationRequest):
         result["confirmation_matrix"] = None
         result["confirmation_matrix_error"] = warning
     try:
+        # Second pass rebuilds month_by_month with theme hits from the completed confirmation_matrix.
         result = enhance_with_timeline(result)
     except Exception as exc:
         warning = f"Month-by-month timeline failed and was skipped: {exc.__class__.__name__}: {str(exc)}"
