@@ -56,6 +56,9 @@ PLANETS = {
 
 OPTIONAL_PLANETS = {"Hiron": getattr(swe, "CHIRON", None)}
 
+CORE_PLANET_NAMES = ["Sunce", "Mesec", "Merkur", "Venera", "Mars", "Jupiter", "Saturn", "Uran", "Neptun", "Pluton", "Severni čvor", "Južni čvor", "Lilit", "Hiron"]
+ANGLE_NAMES = ["ASC", "DSC", "MC", "IC", "Vertex"]
+
 ASPECTS = [
     ("konjunkcija", 0, 8),
     ("opozicija", 180, 8),
@@ -216,16 +219,64 @@ def _calc_planet(jd_ut: float, planet_id: int) -> dict[str, Any]:
     return {"longitude": lon, "latitude": ecl[1], "speed": ecl[3], "declination": eq[1], "retrograde": ecl[3] < 0}
 
 
-def _aspects(points: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+def _aspects(points: dict[str, dict[str, Any]], label_a: str | None = None, label_b: str | None = None) -> list[dict[str, Any]]:
     names = list(points.keys())
     rows: list[dict[str, Any]] = []
     for i, a in enumerate(names):
         for b in names[i + 1 :]:
+            if "longitude" not in points[a] or "longitude" not in points[b]:
+                continue
             diff = _angle_diff(points[a]["longitude"], points[b]["longitude"])
             for aspect_name, angle, orb in ASPECTS:
                 delta = abs(diff - angle)
                 if delta <= orb:
-                    rows.append({"point_a": a, "point_b": b, "aspect": aspect_name, "angle": angle, "orb": round(delta, 4), "exactness": "tight" if delta <= 1 else "normal"})
+                    rows.append(
+                        {
+                            "point_a": a,
+                            "point_b": b,
+                            "group_a": label_a,
+                            "group_b": label_b,
+                            "aspect": aspect_name,
+                            "angle": angle,
+                            "orb": round(delta, 4),
+                            "exactness": "tight" if delta <= 1 else "normal",
+                        }
+                    )
+                    break
+    rows.sort(key=lambda x: x["orb"])
+    return rows
+
+
+def _cross_aspects(a_points: dict[str, dict[str, Any]], b_points: dict[str, dict[str, Any]], group_a: str, group_b: str) -> list[dict[str, Any]]:
+    merged: dict[str, dict[str, Any]] = {}
+    # Deliberately keep unique labels to avoid losing points with same names.
+    for name, value in a_points.items():
+        merged[f"{group_a}: {name}"] = value
+    for name, value in b_points.items():
+        merged[f"{group_b}: {name}"] = value
+    rows = []
+    a_names = [f"{group_a}: {name}" for name in a_points]
+    b_names = [f"{group_b}: {name}" for name in b_points]
+    for a in a_names:
+        for b in b_names:
+            if "longitude" not in merged[a] or "longitude" not in merged[b]:
+                continue
+            diff = _angle_diff(merged[a]["longitude"], merged[b]["longitude"])
+            for aspect_name, angle, orb in ASPECTS:
+                delta = abs(diff - angle)
+                if delta <= orb:
+                    rows.append(
+                        {
+                            "point_a": a.replace(f"{group_a}: ", ""),
+                            "point_b": b.replace(f"{group_b}: ", ""),
+                            "group_a": group_a,
+                            "group_b": group_b,
+                            "aspect": aspect_name,
+                            "angle": angle,
+                            "orb": round(delta, 4),
+                            "exactness": "tight" if delta <= 1 else "normal",
+                        }
+                    )
                     break
     rows.sort(key=lambda x: x["orb"])
     return rows
@@ -338,7 +389,6 @@ def _moon_phase_angle(jd_ut: float) -> float:
 
 
 def _syzygy(jd_ut: float, cusps: list[float]) -> dict[str, Any]:
-    # Step backward in 0.25-day increments and locate the most recent new/full moon region.
     best = None
     for i in range(1, 240):
         jd = jd_ut - i * 0.25
@@ -349,7 +399,6 @@ def _syzygy(jd_ut: float, cusps: list[float]) -> dict[str, Any]:
             best = {"jd": jd, "target": target, "distance": distance}
     if not best:
         return {}
-    # Refine around the best point.
     refined = best
     for j in range(-24, 25):
         jd = best["jd"] + j * (0.25 / 24)
@@ -368,6 +417,8 @@ def _syzygy(jd_ut: float, cusps: list[float]) -> dict[str, Any]:
 def _enrich_points(points: dict[str, dict[str, Any]], cusps: list[float]) -> dict[str, dict[str, Any]]:
     enriched = {}
     for name, point in points.items():
+        if not point or "longitude" not in point:
+            continue
         row = dict(point)
         row["antiscia"] = _antiscia(point["longitude"])
         row["dodekatemoria"] = _dodekatemoria(point["longitude"])
@@ -377,6 +428,59 @@ def _enrich_points(points: dict[str, dict[str, Any]], cusps: list[float]) -> dic
             row["house"] = _house_for_lon(row["longitude"], cusps)
         enriched[name] = row
     return enriched
+
+
+def _quality_warnings(request: NatalCalculationRequest, planets: dict[str, Any]) -> list[str]:
+    warnings = []
+    if "Hiron" not in planets:
+        warnings.append("Hiron nije izračunat u ovom okruženju; tretira se kao opcionalna tačka i ne blokira proračun.")
+    warnings.append("Fiksne zvezde trenutno koriste internu aproksimativnu tropikalnu tabelu; sledeća verzija treba da doda precesiju/epohu za profesionalni završni proračun.")
+    if not request.birth_time:
+        warnings.append("Bez tačnog vremena nema pouzdanih kuća, ASC/MC i lotova.")
+    return warnings
+
+
+def _build_aspect_sets(planets: dict[str, Any], angles: dict[str, Any], lots: dict[str, Any], midpoints: dict[str, Any]) -> dict[str, Any]:
+    clean_angles = {k: v for k, v in angles.items() if k in ANGLE_NAMES and isinstance(v, dict)}
+    return {
+        "planet_aspects": _aspects(planets, "planet", "planet"),
+        "angle_aspects": _cross_aspects(clean_angles, planets, "angle", "planet"),
+        "lot_aspects": _cross_aspects(lots, {**planets, **clean_angles}, "lot", "natal_point"),
+        "midpoint_aspects": _cross_aspects(midpoints, {**planets, **clean_angles}, "midpoint", "natal_point"),
+    }
+
+
+def _book_of_data(result: dict[str, Any]) -> dict[str, Any]:
+    angles = result["angles"]
+    planets = result["planets"]
+    core = {
+        "ASC": angles.get("ASC", {}).get("formatted"),
+        "MC": angles.get("MC", {}).get("formatted"),
+        "Sunce": planets.get("Sunce", {}).get("formatted"),
+        "Mesec": planets.get("Mesec", {}).get("formatted"),
+        "sect": result.get("sect", {}).get("sect"),
+        "profection_house": result.get("profections", {}).get("active_house"),
+        "lord_of_year": result.get("profections", {}).get("lord_of_year"),
+    }
+    return {
+        "core_natal": core,
+        "input": result["input"],
+        "place": result["place"],
+        "time": result["time"],
+        "settings": result["settings"],
+        "angles": result["angles"],
+        "houses": result["houses"],
+        "planets": result["planets"],
+        "arabic_lots": result["arabic_lots"],
+        "midpoints": result["midpoints"],
+        "syzygy": result["syzygy"],
+        "sect": result["sect"],
+        "profections": result["profections"],
+        "firdaria": result["firdaria"],
+        "fixed_star_hits": result["fixed_star_hits"],
+        "aspect_sets": result["aspect_sets"],
+        "quality_warnings": result["quality_warnings"],
+    }
 
 
 def calculate_natal(request: NatalCalculationRequest) -> dict[str, Any]:
@@ -441,10 +545,13 @@ def calculate_natal(request: NatalCalculationRequest) -> dict[str, Any]:
     midpoints = _midpoints(angles_enriched, planet_rows, cusps)
     midpoints = _enrich_points(midpoints, cusps)
 
-    aspect_points = {**planet_rows, **{f"Lot: {k}": v for k, v in lots.items()}, **{f"Midpoint: {k}": v for k, v in midpoints.items()}, "ASC": angles_enriched["ASC"], "MC": angles_enriched["MC"], "DSC": angles_enriched["DSC"], "IC": angles_enriched["IC"]}
+    clean_angles = {k: v for k, v in angles_enriched.items() if k in ANGLE_NAMES and isinstance(v, dict)}
+    all_points = {**planet_rows, **{f"Lot: {k}": v for k, v in lots.items()}, **{f"Midpoint: {k}": v for k, v in midpoints.items()}, **clean_angles}
+    aspect_sets = _build_aspect_sets(planet_rows, clean_angles, lots, midpoints)
 
     result = {
         "success": True,
+        "schema": "ASTRO_ARIES_BOOK_OF_DATA_V1",
         "engine": "Swiss Ephemeris / pyswisseph",
         "settings": {
             "zodiac": "tropical",
@@ -465,11 +572,14 @@ def calculate_natal(request: NatalCalculationRequest) -> dict[str, Any]:
         "arabic_lots": lots,
         "midpoints": midpoints,
         "sect": sect_data,
-        "fixed_star_hits_orb_1deg": _fixed_star_hits(aspect_points, 1.0),
+        "fixed_star_hits": _fixed_star_hits(all_points, 1.0),
         "syzygy": _syzygy(jd_ut, cusps),
         "profections": _profection(year, month, day, calc_date, houses),
         "firdaria": _firdaria(year, month, day, sect_data["sect"], calc_date),
-        "aspects": _aspects(aspect_points),
+        "aspect_sets": aspect_sets,
+        "quality_warnings": [],
         "calculation_only_note": "This endpoint returns calculation data only, not interpretation.",
     }
+    result["quality_warnings"] = _quality_warnings(request, planet_rows)
+    result["book_of_data"] = _book_of_data(result)
     return result
