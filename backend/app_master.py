@@ -211,3 +211,9 @@ def memory_update_state(request: ConversationStateUpdate):
 def master_panel() -> FileResponse:
     panel_path = BASE_DIR / "master_panel.html"
     return FileResponse(panel_path)
+
+
+@app.get("/astro-workbench")
+def astro_workbench() -> FileResponse:
+    panel_path = BASE_DIR / "astro_workbench.html"
+    return FileResponse(panel_path)
