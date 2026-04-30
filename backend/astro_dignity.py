@@ -3,6 +3,22 @@ from __future__ import annotations
 from typing import Any
 
 CLASSICAL_PLANETS = ["Sunce", "Mesec", "Merkur", "Venera", "Mars", "Jupiter", "Saturn"]
+
+RULERS = {
+    "Ovan": "Mars",
+    "Bik": "Venera",
+    "Blizanci": "Merkur",
+    "Rak": "Mesec",
+    "Lav": "Sunce",
+    "Devica": "Merkur",
+    "Vaga": "Venera",
+    "Škorpion": "Mars",
+    "Strelac": "Jupiter",
+    "Jarac": "Saturn",
+    "Vodolija": "Saturn",
+    "Ribe": "Jupiter",
+}
+
 SIGN_OPPOSITES = {
     "Ovan": "Vaga",
     "Bik": "Škorpion",
