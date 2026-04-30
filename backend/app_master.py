@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse
 try:
     from backend.app import app
     from backend.assistant_turn import AssistantTurnRequest, assistant_turn_payload
+    from backend.astro_confirmation import build_confirmation_matrix
     from backend.astro_dignity import enhance_with_dignities
     from backend.astro_engine import NatalCalculationRequest, calculate_natal
     from backend.astro_predictive import PredictiveCalculationRequest, calculate_predictive
@@ -24,6 +25,7 @@ try:
 except ModuleNotFoundError:
     from app import app
     from assistant_turn import AssistantTurnRequest, assistant_turn_payload
+    from astro_confirmation import build_confirmation_matrix
     from astro_dignity import enhance_with_dignities
     from astro_engine import NatalCalculationRequest, calculate_natal
     from astro_predictive import PredictiveCalculationRequest, calculate_predictive
@@ -93,6 +95,14 @@ def _safe_astro_predictive(request: PredictiveCalculationRequest):
         warning = f"Predictive natal reprocessing failed and original natal_book_of_data was kept: {exc.__class__.__name__}: {str(exc)}"
         result.setdefault("quality_warnings", []).append(warning)
         result["natal_reprocess_error"] = warning
+    try:
+        result["confirmation_matrix"] = build_confirmation_matrix(result)
+        result.setdefault("quality_warnings", []).append("confirmation_matrix added: concrete event claims require moderate or strong confirmation status.")
+    except Exception as exc:
+        warning = f"Confirmation matrix failed and was skipped: {exc.__class__.__name__}: {str(exc)}"
+        result.setdefault("quality_warnings", []).append(warning)
+        result["confirmation_matrix"] = None
+        result["confirmation_matrix_error"] = warning
     return result
 
 
