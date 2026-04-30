@@ -76,6 +76,12 @@ def _sanitize_lunar_returns(lunar_returns: list[dict[str, Any]]) -> list[dict[st
     return clean
 
 
+def _append_warning_once(result: dict[str, Any], warning: str) -> None:
+    warnings = result.setdefault("quality_warnings", [])
+    if warning not in warnings:
+        warnings.append(warning)
+
+
 def build_month_by_month(result: dict[str, Any]) -> dict[str, Any]:
     confirmation_matrix = result.get("confirmation_matrix") or {}
     months: dict[str, dict[str, Any]] = {}
@@ -105,7 +111,6 @@ def build_month_by_month(result: dict[str, Any]) -> dict[str, Any]:
                 continue
             key = _month_key(_event_date(row))
             if not key:
-                # Progressions and solar arc may be exact for the calculation date only.
                 key = _month_key((result.get("settings") or {}).get("prediction_start"))
             if not key:
                 continue
@@ -162,8 +167,7 @@ def enhance_with_timeline(result: dict[str, Any]) -> dict[str, Any]:
     removed = len(result.get("lunar_returns") or []) - len(clean_lunars)
     result["lunar_returns"] = clean_lunars
     result["month_by_month"] = build_month_by_month(result)
-    warnings = result.setdefault("quality_warnings", [])
     if removed:
-        warnings.append(f"Filtered {removed} invalid lunar_return rows with orb > 1°.")
-    warnings.append("month_by_month added: monthly timing index from usable predictive contacts and clean lunar returns.")
+        _append_warning_once(result, f"Filtered {removed} invalid lunar_return rows with orb > 1°.")
+    _append_warning_once(result, "month_by_month added: monthly timing index from usable predictive contacts and clean lunar returns.")
     return result
