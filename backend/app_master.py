@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse
 try:
     from backend.app import app
     from backend.assistant_turn import AssistantTurnRequest, assistant_turn_payload
+    from backend.astro_engine import NatalCalculationRequest, calculate_natal
     from backend.conversation_memory import (
         ConversationLoadRequest,
         ConversationMessage,
@@ -20,6 +21,7 @@ try:
 except ModuleNotFoundError:
     from app import app
     from assistant_turn import AssistantTurnRequest, assistant_turn_payload
+    from astro_engine import NatalCalculationRequest, calculate_natal
     from conversation_memory import (
         ConversationLoadRequest,
         ConversationMessage,
@@ -67,6 +69,11 @@ def assistant_respond(request: AssistantRequest):
 @app.post("/assistant/turn")
 def assistant_turn(request: AssistantTurnRequest):
     return assistant_turn_payload(request)
+
+
+@app.post("/astro/natal")
+def astro_natal(request: NatalCalculationRequest):
+    return calculate_natal(request)
 
 
 @app.post("/intent/extract")
