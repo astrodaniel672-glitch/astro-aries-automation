@@ -264,8 +264,9 @@ def _status(score: float, counts: dict[str, int]) -> str:
     has_annual_or_solar = counts.get("annual", 0) > 0 or counts.get("solar", 0) > 0
     if has_core_natal and has_annual_or_solar and has_primary_direction and structural_layers >= 3 and score >= 9.5:
         return "strong"
-    if has_core_natal and has_primary_direction and has_annual_or_solar and structural_layers >= 2 and score >= 6.75:
-        return "moderate"
+    # Anything below strong is deliberately treated as caution-only for the
+    # interpretive payload builder, which currently allows concrete event
+    # wording for status in {strong, moderate}.
     if has_core_natal and (has_primary_direction or has_annual_or_solar) and score >= 4.0:
         return "weak"
     return "insufficient"
@@ -282,9 +283,6 @@ def _capped_score(raw_score: float, status: str, counts: dict[str, int]) -> floa
     has_primary_direction = counts.get("primary_progression", 0) > 0 or counts.get("primary_solar_arc", 0) > 0
     if status == "strong":
         return raw_score
-    if status == "moderate":
-        # Moderate is useful for narrative direction, but not a hard event claim.
-        return min(raw_score, 8.25)
     if status == "weak":
         cap = 5.75
         if not has_annual_or_solar:
@@ -300,8 +298,6 @@ def _capped_score(raw_score: float, status: str, counts: dict[str, int]) -> floa
 def _interpretation_permission(status: str) -> str:
     if status == "strong":
         return "allowed"
-    if status == "moderate":
-        return "allowed_cautious"
     if status == "weak":
         return "caution_only"
     return "blocked"
@@ -382,10 +378,10 @@ def build_confirmation_matrix(result: dict[str, Any]) -> dict[str, Any]:
     ranked = sorted(matrix.items(), key=lambda kv: kv[1]["confirmation_score"], reverse=True)
     return {
         "rules": {
-            "strong": "Core natal basis + annual/solar activation + primary progression or solar arc + at least 3 structural layers. Transits only time the event.",
-            "moderate": "Core natal basis + annual/solar activation + primary progression or solar arc + at least 2 structural layers. Interpret cautiously, not as a guaranteed headline event.",
+            "strong": "Core natal basis + annual/solar activation + primary progression or solar arc + at least 3 structural layers. Only this status may support concrete event wording.",
             "weak": "Core natal basis plus limited support; mention as tendency only. Public score is capped so weak themes do not look like headline events.",
             "insufficient": "Do not claim a concrete event. Context only.",
+            "moderate_policy": "Moderate is intentionally not emitted as an event status until the interpretive payload builder separates moderate from allowed concrete claims.",
             "primary_theme_match_rule": "A contact must directly touch a theme house, angle, or theme planet. Generic contacts are not allowed to confirm many unrelated themes.",
             "contact_reuse_rule": "One progression/solar-arc contact can feed only its best direct themes, usually no more than two. Transit contacts are restricted to one timing theme.",
             "transit_rule": "Fast transits and lunar returns are timing only. They cannot lift a theme to strong by themselves.",
