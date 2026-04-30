@@ -4,3 +4,7 @@ pydantic[email]
 python-dotenv
 supabase
 openai
+pyswisseph
+geopy
+timezonefinder
+pytz
