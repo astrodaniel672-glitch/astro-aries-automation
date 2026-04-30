@@ -7,6 +7,7 @@ try:
     from backend.assistant_turn import AssistantTurnRequest, assistant_turn_payload
     from backend.astro_dignity import enhance_with_dignities
     from backend.astro_engine import NatalCalculationRequest, calculate_natal
+    from backend.astro_predictive import PredictiveCalculationRequest, calculate_predictive
     from backend.astro_rules import enhance_with_rules
     from backend.conversation_memory import (
         ConversationLoadRequest,
@@ -25,6 +26,7 @@ except ModuleNotFoundError:
     from assistant_turn import AssistantTurnRequest, assistant_turn_payload
     from astro_dignity import enhance_with_dignities
     from astro_engine import NatalCalculationRequest, calculate_natal
+    from astro_predictive import PredictiveCalculationRequest, calculate_predictive
     from astro_rules import enhance_with_rules
     from conversation_memory import (
         ConversationLoadRequest,
@@ -107,6 +109,11 @@ def assistant_turn(request: AssistantTurnRequest):
 @app.post("/astro/natal")
 def astro_natal(request: NatalCalculationRequest):
     return _safe_astro_natal(request)
+
+
+@app.post("/astro/predictive")
+def astro_predictive(request: PredictiveCalculationRequest):
+    return calculate_predictive(request)
 
 
 @app.post("/intent/extract")
