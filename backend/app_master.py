@@ -10,6 +10,7 @@ try:
     from backend.astro_engine import NatalCalculationRequest, calculate_natal
     from backend.astro_predictive import PredictiveCalculationRequest, calculate_predictive
     from backend.astro_rules import enhance_with_rules
+    from backend.astro_timeline import enhance_with_timeline
     from backend.conversation_memory import (
         ConversationLoadRequest,
         ConversationMessage,
@@ -30,6 +31,7 @@ except ModuleNotFoundError:
     from astro_engine import NatalCalculationRequest, calculate_natal
     from astro_predictive import PredictiveCalculationRequest, calculate_predictive
     from astro_rules import enhance_with_rules
+    from astro_timeline import enhance_with_timeline
     from conversation_memory import (
         ConversationLoadRequest,
         ConversationMessage,
@@ -103,6 +105,13 @@ def _safe_astro_predictive(request: PredictiveCalculationRequest):
         result.setdefault("quality_warnings", []).append(warning)
         result["confirmation_matrix"] = None
         result["confirmation_matrix_error"] = warning
+    try:
+        result = enhance_with_timeline(result)
+    except Exception as exc:
+        warning = f"Month-by-month timeline failed and was skipped: {exc.__class__.__name__}: {str(exc)}"
+        result.setdefault("quality_warnings", []).append(warning)
+        result["month_by_month"] = None
+        result["month_by_month_error"] = warning
     return result
 
 
