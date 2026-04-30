@@ -40,6 +40,25 @@ except ModuleNotFoundError:
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 
+def _safe_astro_natal(request: NatalCalculationRequest):
+    result = calculate_natal(request)
+    try:
+        return enhance_with_dignities(result)
+    except Exception as exc:
+        warning = f"Dignity/dispositor layer failed and was skipped: {exc.__class__.__name__}: {str(exc)}"
+        result.setdefault("quality_warnings", []).append(warning)
+        if isinstance(result.get("book_of_data"), dict):
+            result["book_of_data"]["quality_warnings"] = result["quality_warnings"]
+            result["book_of_data"]["dignities"] = None
+            result["book_of_data"]["planetary_condition"] = None
+            result["book_of_data"]["dispositor_chains"] = None
+        result["dignities"] = None
+        result["planetary_condition"] = None
+        result["dispositor_chains"] = None
+        result["dignity_layer_error"] = warning
+        return result
+
+
 @app.post("/assistant/respond")
 def assistant_respond(request: AssistantRequest):
     extraction = extract_payload(
@@ -75,7 +94,7 @@ def assistant_turn(request: AssistantTurnRequest):
 
 @app.post("/astro/natal")
 def astro_natal(request: NatalCalculationRequest):
-    return enhance_with_dignities(calculate_natal(request))
+    return _safe_astro_natal(request)
 
 
 @app.post("/intent/extract")
