@@ -17,24 +17,27 @@ class NatalCalculationRequest(BaseModel):
     birth_date: str
     birth_time: str
     birth_place: str
+    calculation_date: str | None = None
     house_system: str = "P"
     zodiac: str = "tropical"
 
 
-SIGNS_SR = [
-    "Ovan",
-    "Bik",
-    "Blizanci",
-    "Rak",
-    "Lav",
-    "Devica",
-    "Vaga",
-    "Škorpion",
-    "Strelac",
-    "Jarac",
-    "Vodolija",
-    "Ribe",
-]
+SIGNS_SR = ["Ovan", "Bik", "Blizanci", "Rak", "Lav", "Devica", "Vaga", "Škorpion", "Strelac", "Jarac", "Vodolija", "Ribe"]
+
+RULERS = {
+    "Ovan": "Mars",
+    "Bik": "Venera",
+    "Blizanci": "Merkur",
+    "Rak": "Mesec",
+    "Lav": "Sunce",
+    "Devica": "Merkur",
+    "Vaga": "Venera",
+    "Škorpion": "Mars",
+    "Strelac": "Jupiter",
+    "Jarac": "Saturn",
+    "Vodolija": "Saturn",
+    "Ribe": "Jupiter",
+}
 
 PLANETS = {
     "Sunce": swe.SUN,
@@ -48,11 +51,10 @@ PLANETS = {
     "Neptun": swe.NEPTUNE,
     "Pluton": swe.PLUTO,
     "Severni čvor": swe.TRUE_NODE,
+    "Lilit": swe.MEAN_APOG,
 }
 
-OPTIONAL_PLANETS = {
-    "Hiron": getattr(swe, "CHIRON", None),
-}
+OPTIONAL_PLANETS = {"Hiron": getattr(swe, "CHIRON", None)}
 
 ASPECTS = [
     ("konjunkcija", 0, 8),
@@ -60,8 +62,27 @@ ASPECTS = [
     ("trigon", 120, 6),
     ("kvadrat", 90, 6),
     ("sekstil", 60, 4),
+    ("polukvadrat", 45, 2),
+    ("seskvikvadrat", 135, 2),
     ("kvinkunks", 150, 2),
+    ("polisekstil", 30, 2),
 ]
+
+FIXED_STARS = {
+    "Regulus": 150.0,
+    "Spica": 203.0,
+    "Algol": 56.0,
+    "Antares": 249.0,
+    "Aldebaran": 69.0,
+    "Fomalhaut": 333.0,
+    "Sirius": 103.0,
+    "Arcturus": 203.0,
+    "Vega": 285.0,
+    "Deneb Algedi": 323.0,
+}
+
+FIRDARIA_DAY = [("Sunce", 10), ("Venera", 8), ("Merkur", 13), ("Mesec", 9), ("Saturn", 11), ("Jupiter", 12), ("Mars", 7)]
+FIRDARIA_NIGHT = [("Mesec", 9), ("Saturn", 11), ("Jupiter", 12), ("Mars", 7), ("Sunce", 10), ("Venera", 8), ("Merkur", 13)]
 
 
 def _parse_date(date_text: str) -> tuple[int, int, int]:
@@ -83,8 +104,28 @@ def _parse_time(time_text: str) -> tuple[int, int, int]:
     return hour, minute, second
 
 
+def _today_date() -> tuple[int, int, int]:
+    now = datetime.utcnow()
+    return now.year, now.month, now.day
+
+
 def _deg_norm(value: float) -> float:
     return value % 360.0
+
+
+def _angle_diff(a: float, b: float) -> float:
+    diff = abs(_deg_norm(a) - _deg_norm(b)) % 360
+    return 360 - diff if diff > 180 else diff
+
+
+def _midpoint(a: float, b: float) -> float:
+    a, b = _deg_norm(a), _deg_norm(b)
+    if abs(a - b) > 180:
+        if a < b:
+            a += 360
+        else:
+            b += 360
+    return _deg_norm((a + b) / 2)
 
 
 def _sign_info(lon: float) -> dict[str, Any]:
@@ -101,15 +142,17 @@ def _sign_info(lon: float) -> dict[str, Any]:
     if minute == 60:
         deg += 1
         minute = 0
+    sign = SIGNS_SR[sign_index]
     return {
         "longitude": round(lon, 6),
-        "sign": SIGNS_SR[sign_index],
+        "sign": sign,
         "sign_index": sign_index,
+        "ruler": RULERS[sign],
         "degree_in_sign": round(deg_in_sign, 6),
         "degree": deg,
         "minute": minute,
         "second": second,
-        "formatted": f"{deg}°{minute:02d}' {SIGNS_SR[sign_index]}",
+        "formatted": f"{deg}°{minute:02d}' {sign}",
     }
 
 
@@ -121,12 +164,7 @@ def _geo_place(place: str) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail={"message": "Geocoding failed.", "error": str(exc)}) from exc
     if not location:
         raise HTTPException(status_code=404, detail=f"Place not found: {place}")
-    return {
-        "input": place,
-        "name": location.address,
-        "latitude": float(location.latitude),
-        "longitude": float(location.longitude),
-    }
+    return {"input": place, "name": location.address, "latitude": float(location.latitude), "longitude": float(location.longitude)}
 
 
 def _timezone_for(lat: float, lon: float) -> str:
@@ -159,8 +197,7 @@ def _house_for_lon(lon: float, cusps: list[float]) -> int:
     lon = _deg_norm(lon)
     c = [_deg_norm(x) for x in cusps]
     for i in range(12):
-        start = c[i]
-        end = c[(i + 1) % 12]
+        start, end = c[i], c[(i + 1) % 12]
         if start <= end:
             if start <= lon < end:
                 return i + 1
@@ -170,60 +207,190 @@ def _house_for_lon(lon: float, cusps: list[float]) -> int:
     return 12
 
 
-def _calc_planet(jd_ut: float, planet_id: int) -> tuple[float, float, bool]:
-    flags = swe.FLG_SWIEPH | swe.FLG_SPEED
-    result, _flag = swe.calc_ut(jd_ut, planet_id, flags)
-    lon = _deg_norm(result[0])
-    speed = result[3]
-    return lon, speed, speed < 0
+def _calc_planet(jd_ut: float, planet_id: int) -> dict[str, Any]:
+    flags = swe.FLG_MOSEPH | swe.FLG_SPEED | swe.FLG_EQUATORIAL
+    ecl_flags = swe.FLG_MOSEPH | swe.FLG_SPEED
+    ecl, _ = swe.calc_ut(jd_ut, planet_id, ecl_flags)
+    eq, _ = swe.calc_ut(jd_ut, planet_id, flags)
+    lon = _deg_norm(ecl[0])
+    return {"longitude": lon, "latitude": ecl[1], "speed": ecl[3], "declination": eq[1], "retrograde": ecl[3] < 0}
 
 
-def _aspects(planets: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
-    names = list(planets.keys())
+def _aspects(points: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    names = list(points.keys())
     rows: list[dict[str, Any]] = []
     for i, a in enumerate(names):
         for b in names[i + 1 :]:
-            lon_a = planets[a]["longitude"]
-            lon_b = planets[b]["longitude"]
-            diff = abs(lon_a - lon_b) % 360
-            if diff > 180:
-                diff = 360 - diff
+            diff = _angle_diff(points[a]["longitude"], points[b]["longitude"])
             for aspect_name, angle, orb in ASPECTS:
                 delta = abs(diff - angle)
                 if delta <= orb:
-                    rows.append(
-                        {
-                            "planet_a": a,
-                            "planet_b": b,
-                            "aspect": aspect_name,
-                            "angle": angle,
-                            "orb": round(delta, 4),
-                            "exactness": "tight" if delta <= 1 else "normal",
-                        }
-                    )
+                    rows.append({"point_a": a, "point_b": b, "aspect": aspect_name, "angle": angle, "orb": round(delta, 4), "exactness": "tight" if delta <= 1 else "normal"})
                     break
     rows.sort(key=lambda x: x["orb"])
     return rows
 
 
+def _lot(name: str, lon: float, cusps: list[float]) -> dict[str, Any]:
+    info = _sign_info(lon)
+    info.update({"name": name, "house": _house_for_lon(lon, cusps)})
+    return info
+
+
+def _arabic_lots(angles: dict[str, Any], planets: dict[str, dict[str, Any]], cusps: list[float], sect: str) -> dict[str, Any]:
+    asc = angles["ASC"]["longitude"]
+    dsc = angles["DSC"]["longitude"]
+    sun = planets["Sunce"]["longitude"]
+    moon = planets["Mesec"]["longitude"]
+    venus = planets["Venera"]["longitude"]
+    mercury = planets["Merkur"]["longitude"]
+    mars = planets["Mars"]["longitude"]
+    jupiter = planets["Jupiter"]["longitude"]
+    lilith = planets.get("Lilit", {}).get("longitude", venus)
+    dsc_ruler = planets.get(angles["DSC"]["ruler"], {}).get("longitude", dsc)
+    day = sect == "day"
+    lots = {
+        "Pars Fortunae": asc + moon - sun if day else asc + sun - moon,
+        "Pars Spiritus": asc + sun - moon if day else asc + moon - sun,
+        "Lot of Eros": asc + venus - lilith,
+        "Lot of Marriage": asc + dsc_ruler - venus,
+        "Lot of Necessity": asc + mercury - moon,
+        "Lot of Courage": asc + mars - sun,
+        "Lot of Victory": asc + jupiter - sun,
+    }
+    return {name: _lot(name, lon, cusps) for name, lon in lots.items()}
+
+
+def _midpoints(angles: dict[str, Any], planets: dict[str, dict[str, Any]], cusps: list[float]) -> dict[str, Any]:
+    pairs = {
+        "Sunce/Mesec": ("Sunce", "Mesec"),
+        "Jupiter/MC": ("Jupiter", "MC"),
+        "Saturn/MC": ("Saturn", "MC"),
+        "Venera/Jupiter": ("Venera", "Jupiter"),
+        "Mars/Saturn": ("Mars", "Saturn"),
+    }
+    vals: dict[str, Any] = {}
+    for name, (a, b) in pairs.items():
+        lon_a = planets[a]["longitude"] if a in planets else angles[a]["longitude"]
+        lon_b = planets[b]["longitude"] if b in planets else angles[b]["longitude"]
+        info = _sign_info(_midpoint(lon_a, lon_b))
+        info.update({"name": name, "house": _house_for_lon(info["longitude"], cusps)})
+        vals[name] = info
+    return vals
+
+
+def _antiscia(lon: float) -> dict[str, Any]:
+    antiscia = _deg_norm(180 - lon)
+    contra = _deg_norm(360 - lon)
+    return {"antiscia": _sign_info(antiscia), "contra_antiscia": _sign_info(contra)}
+
+
+def _dodekatemoria(lon: float) -> dict[str, Any]:
+    sign_start = int(_deg_norm(lon) // 30) * 30
+    deg_in_sign = _deg_norm(lon) - sign_start
+    return _sign_info(sign_start + deg_in_sign * 12)
+
+
+def _fixed_star_hits(points: dict[str, dict[str, Any]], orb: float = 1.0) -> list[dict[str, Any]]:
+    hits = []
+    for point_name, point in points.items():
+        lon = point.get("longitude")
+        if lon is None:
+            continue
+        for star, star_lon in FIXED_STARS.items():
+            delta = _angle_diff(lon, star_lon)
+            if delta <= orb:
+                hits.append({"point": point_name, "fixed_star": star, "star_position": _sign_info(star_lon), "orb": round(delta, 4)})
+    hits.sort(key=lambda x: x["orb"])
+    return hits
+
+
+def _sect(sun_lon: float, cusps: list[float]) -> dict[str, Any]:
+    sun_house = _house_for_lon(sun_lon, cusps)
+    is_day = sun_house in {7, 8, 9, 10, 11, 12}
+    return {"sect": "day" if is_day else "night", "sun_house": sun_house, "rule": "Sunce iznad horizonta = dnevna karta; ispod horizonta = noćna karta"}
+
+
+def _profection(year: int, month: int, day: int, calc_date: tuple[int, int, int], houses: list[dict[str, Any]]) -> dict[str, Any]:
+    cy, cm, cd = calc_date
+    age = cy - year - ((cm, cd) < (month, day))
+    active_house = (age % 12) + 1
+    cusp = houses[active_house - 1]
+    return {"age": age, "active_house": active_house, "house_sign": cusp["sign"], "lord_of_year": cusp["ruler"]}
+
+
+def _firdaria(year: int, month: int, day: int, sect: str, calc_date: tuple[int, int, int]) -> dict[str, Any]:
+    cy, cm, cd = calc_date
+    age = cy - year - ((cm, cd) < (month, day))
+    sequence = FIRDARIA_DAY if sect == "day" else FIRDARIA_NIGHT
+    cursor = 0
+    for planet, years in sequence:
+        if cursor <= age < cursor + years:
+            return {"age": age, "sect": sect, "period_lord": planet, "period_age_start": cursor, "period_age_end": cursor + years, "years_in_period": age - cursor}
+        cursor += years
+    return {"age": age, "sect": sect, "period_lord": "post-classical-cycle", "period_age_start": cursor, "period_age_end": None, "years_in_period": None}
+
+
+def _moon_phase_angle(jd_ut: float) -> float:
+    sun = _calc_planet(jd_ut, swe.SUN)["longitude"]
+    moon = _calc_planet(jd_ut, swe.MOON)["longitude"]
+    return _deg_norm(moon - sun)
+
+
+def _syzygy(jd_ut: float, cusps: list[float]) -> dict[str, Any]:
+    # Step backward in 0.25-day increments and locate the most recent new/full moon region.
+    best = None
+    for i in range(1, 240):
+        jd = jd_ut - i * 0.25
+        phase = _moon_phase_angle(jd)
+        target = 0 if phase < 90 or phase > 270 else 180
+        distance = min(abs(phase - target), 360 - abs(phase - target))
+        if best is None or distance < best["distance"]:
+            best = {"jd": jd, "target": target, "distance": distance}
+    if not best:
+        return {}
+    # Refine around the best point.
+    refined = best
+    for j in range(-24, 25):
+        jd = best["jd"] + j * (0.25 / 24)
+        phase = _moon_phase_angle(jd)
+        target = best["target"]
+        distance = min(abs(phase - target), 360 - abs(phase - target))
+        if distance < refined["distance"]:
+            refined = {"jd": jd, "target": target, "distance": distance}
+    moon_lon = _calc_planet(refined["jd"], swe.MOON)["longitude"]
+    dt = swe.revjul(refined["jd"], swe.GREG_CAL)
+    info = _sign_info(moon_lon)
+    info.update({"type": "Mlad Mesec" if refined["target"] == 0 else "Pun Mesec", "julian_day_ut": round(refined["jd"], 8), "utc_tuple": dt, "house": _house_for_lon(moon_lon, cusps), "phase_orb": round(refined["distance"], 4)})
+    return info
+
+
+def _enrich_points(points: dict[str, dict[str, Any]], cusps: list[float]) -> dict[str, dict[str, Any]]:
+    enriched = {}
+    for name, point in points.items():
+        row = dict(point)
+        row["antiscia"] = _antiscia(point["longitude"])
+        row["dodekatemoria"] = _dodekatemoria(point["longitude"])
+        if "declination" in row:
+            row["out_of_bounds"] = abs(row["declination"]) > 23.433333
+        if "house" not in row:
+            row["house"] = _house_for_lon(row["longitude"], cusps)
+        enriched[name] = row
+    return enriched
+
+
 def calculate_natal(request: NatalCalculationRequest) -> dict[str, Any]:
     year, month, day = _parse_date(request.birth_date)
     hour, minute, second = _parse_time(request.birth_time)
+    calc_date = _parse_date(request.calculation_date) if request.calculation_date else _today_date()
 
-    ephe_path = os.getenv("SWISS_EPHE_PATH")
-    if ephe_path:
-        swe.set_ephe_path(ephe_path)
+    ephe_path = os.getenv("SWISS_EPHE_PATH") or "/usr/share/ephe"
+    swe.set_ephe_path(ephe_path)
 
     place = _geo_place(request.birth_place)
     tz_name = _timezone_for(place["latitude"], place["longitude"])
     time_data = _local_to_utc(year, month, day, hour, minute, second, tz_name)
-    jd_ut = swe.julday(
-        time_data["utc_year"],
-        time_data["utc_month"],
-        time_data["utc_day"],
-        time_data["utc_hour_decimal"],
-        swe.GREG_CAL,
-    )
+    jd_ut = swe.julday(time_data["utc_year"], time_data["utc_month"], time_data["utc_day"], time_data["utc_hour_decimal"], swe.GREG_CAL)
 
     try:
         cusps_tuple, ascmc_tuple = swe.houses_ex(jd_ut, place["latitude"], place["longitude"], request.house_system.encode("ascii"))
@@ -240,6 +407,8 @@ def calculate_natal(request: NatalCalculationRequest) -> dict[str, Any]:
     angles = {
         "ASC": _sign_info(ascmc_tuple[0]),
         "MC": _sign_info(ascmc_tuple[1]),
+        "DSC": _sign_info(ascmc_tuple[0] + 180),
+        "IC": _sign_info(ascmc_tuple[1] + 180),
         "ARMC": round(ascmc_tuple[2], 6),
         "Vertex": _sign_info(ascmc_tuple[3]) if len(ascmc_tuple) > 3 else None,
     }
@@ -252,19 +421,27 @@ def calculate_natal(request: NatalCalculationRequest) -> dict[str, Any]:
 
     for name, planet_id in all_planets.items():
         try:
-            lon, speed, retrograde = _calc_planet(jd_ut, planet_id)
+            calc = _calc_planet(jd_ut, planet_id)
         except Exception:
             continue
-        info = _sign_info(lon)
-        info.update(
-            {
-                "name": name,
-                "speed": round(speed, 8),
-                "retrograde": retrograde,
-                "house": _house_for_lon(lon, cusps),
-            }
-        )
+        info = _sign_info(calc["longitude"])
+        info.update({"name": name, "latitude": round(calc["latitude"], 6), "declination": round(calc["declination"], 6), "speed": round(calc["speed"], 8), "retrograde": calc["retrograde"], "house": _house_for_lon(calc["longitude"], cusps)})
         planet_rows[name] = info
+
+    if "Severni čvor" in planet_rows:
+        sn = _sign_info(planet_rows["Severni čvor"]["longitude"] + 180)
+        sn.update({"name": "Južni čvor", "house": _house_for_lon(sn["longitude"], cusps)})
+        planet_rows["Južni čvor"] = sn
+
+    sect_data = _sect(planet_rows["Sunce"]["longitude"], cusps)
+    angles_enriched = _enrich_points({k: v for k, v in angles.items() if isinstance(v, dict)}, cusps)
+    planet_rows = _enrich_points(planet_rows, cusps)
+    lots = _arabic_lots(angles_enriched, planet_rows, cusps, sect_data["sect"])
+    lots = _enrich_points(lots, cusps)
+    midpoints = _midpoints(angles_enriched, planet_rows, cusps)
+    midpoints = _enrich_points(midpoints, cusps)
+
+    aspect_points = {**planet_rows, **{f"Lot: {k}": v for k, v in lots.items()}, **{f"Midpoint: {k}": v for k, v in midpoints.items()}, "ASC": angles_enriched["ASC"], "MC": angles_enriched["MC"], "DSC": angles_enriched["DSC"], "IC": angles_enriched["IC"]}
 
     result = {
         "success": True,
@@ -272,16 +449,27 @@ def calculate_natal(request: NatalCalculationRequest) -> dict[str, Any]:
         "settings": {
             "zodiac": "tropical",
             "houses": "Placidus" if request.house_system == "P" else request.house_system,
-            "node": "True Node",
-            "time_rule": "local birth time converted to UTC using place timezone",
+            "node": "True Node + South Node derived",
+            "lilith": "Mean Apogee",
+            "time_rule": "local birth time converted to UTC using place timezone before Swiss Ephemeris",
+            "ephemeris_path": ephe_path,
+            "calculation_date": request.calculation_date or datetime.utcnow().strftime("%d.%m.%Y"),
         },
         "input": request.model_dump(),
         "place": place,
         "time": time_data,
         "julian_day_ut": round(jd_ut, 8),
-        "angles": angles,
+        "angles": angles_enriched,
         "houses": houses,
         "planets": planet_rows,
-        "aspects": _aspects(planet_rows),
+        "arabic_lots": lots,
+        "midpoints": midpoints,
+        "sect": sect_data,
+        "fixed_star_hits_orb_1deg": _fixed_star_hits(aspect_points, 1.0),
+        "syzygy": _syzygy(jd_ut, cusps),
+        "profections": _profection(year, month, day, calc_date, houses),
+        "firdaria": _firdaria(year, month, day, sect_data["sect"], calc_date),
+        "aspects": _aspects(aspect_points),
+        "calculation_only_note": "This endpoint returns calculation data only, not interpretation.",
     }
     return result
