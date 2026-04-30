@@ -7,6 +7,7 @@ try:
     from backend.assistant_turn import AssistantTurnRequest, assistant_turn_payload
     from backend.astro_dignity import enhance_with_dignities
     from backend.astro_engine import NatalCalculationRequest, calculate_natal
+    from backend.astro_rules import enhance_with_rules
     from backend.conversation_memory import (
         ConversationLoadRequest,
         ConversationMessage,
@@ -24,6 +25,7 @@ except ModuleNotFoundError:
     from assistant_turn import AssistantTurnRequest, assistant_turn_payload
     from astro_dignity import enhance_with_dignities
     from astro_engine import NatalCalculationRequest, calculate_natal
+    from astro_rules import enhance_with_rules
     from conversation_memory import (
         ConversationLoadRequest,
         ConversationMessage,
@@ -43,7 +45,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 def _safe_astro_natal(request: NatalCalculationRequest):
     result = calculate_natal(request)
     try:
-        return enhance_with_dignities(result)
+        result = enhance_with_dignities(result)
     except Exception as exc:
         warning = f"Dignity/dispositor layer failed and was skipped: {exc.__class__.__name__}: {str(exc)}"
         result.setdefault("quality_warnings", []).append(warning)
@@ -56,7 +58,17 @@ def _safe_astro_natal(request: NatalCalculationRequest):
         result["planetary_condition"] = None
         result["dispositor_chains"] = None
         result["dignity_layer_error"] = warning
-        return result
+    try:
+        result = enhance_with_rules(result)
+    except Exception as exc:
+        warning = f"Astro rules/orb classification layer failed and was skipped: {exc.__class__.__name__}: {str(exc)}"
+        result.setdefault("quality_warnings", []).append(warning)
+        if isinstance(result.get("book_of_data"), dict):
+            result["book_of_data"]["quality_warnings"] = result["quality_warnings"]
+            result["book_of_data"]["proof_book"] = None
+        result["proof_book"] = None
+        result["rules_layer_error"] = warning
+    return result
 
 
 @app.post("/assistant/respond")
