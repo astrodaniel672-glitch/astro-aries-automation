@@ -58,6 +58,7 @@ OPTIONAL_PLANETS = {"Hiron": getattr(swe, "CHIRON", None)}
 
 CORE_PLANET_NAMES = ["Sunce", "Mesec", "Merkur", "Venera", "Mars", "Jupiter", "Saturn", "Uran", "Neptun", "Pluton", "Severni čvor", "Južni čvor", "Lilit", "Hiron"]
 ANGLE_NAMES = ["ASC", "DSC", "MC", "IC", "Vertex"]
+ANGLE_HOUSES = {"ASC": 1, "DSC": 7, "MC": 10, "IC": 4}
 
 ASPECTS = [
     ("konjunkcija", 0, 8),
@@ -230,53 +231,23 @@ def _aspects(points: dict[str, dict[str, Any]], label_a: str | None = None, labe
             for aspect_name, angle, orb in ASPECTS:
                 delta = abs(diff - angle)
                 if delta <= orb:
-                    rows.append(
-                        {
-                            "point_a": a,
-                            "point_b": b,
-                            "group_a": label_a,
-                            "group_b": label_b,
-                            "aspect": aspect_name,
-                            "angle": angle,
-                            "orb": round(delta, 4),
-                            "exactness": "tight" if delta <= 1 else "normal",
-                        }
-                    )
+                    rows.append({"point_a": a, "point_b": b, "group_a": label_a, "group_b": label_b, "aspect": aspect_name, "angle": angle, "orb": round(delta, 4), "exactness": "tight" if delta <= 1 else "normal"})
                     break
     rows.sort(key=lambda x: x["orb"])
     return rows
 
 
 def _cross_aspects(a_points: dict[str, dict[str, Any]], b_points: dict[str, dict[str, Any]], group_a: str, group_b: str) -> list[dict[str, Any]]:
-    merged: dict[str, dict[str, Any]] = {}
-    # Deliberately keep unique labels to avoid losing points with same names.
-    for name, value in a_points.items():
-        merged[f"{group_a}: {name}"] = value
-    for name, value in b_points.items():
-        merged[f"{group_b}: {name}"] = value
     rows = []
-    a_names = [f"{group_a}: {name}" for name in a_points]
-    b_names = [f"{group_b}: {name}" for name in b_points]
-    for a in a_names:
-        for b in b_names:
-            if "longitude" not in merged[a] or "longitude" not in merged[b]:
+    for a_name, a_value in a_points.items():
+        for b_name, b_value in b_points.items():
+            if "longitude" not in a_value or "longitude" not in b_value:
                 continue
-            diff = _angle_diff(merged[a]["longitude"], merged[b]["longitude"])
+            diff = _angle_diff(a_value["longitude"], b_value["longitude"])
             for aspect_name, angle, orb in ASPECTS:
                 delta = abs(diff - angle)
                 if delta <= orb:
-                    rows.append(
-                        {
-                            "point_a": a.replace(f"{group_a}: ", ""),
-                            "point_b": b.replace(f"{group_b}: ", ""),
-                            "group_a": group_a,
-                            "group_b": group_b,
-                            "aspect": aspect_name,
-                            "angle": angle,
-                            "orb": round(delta, 4),
-                            "exactness": "tight" if delta <= 1 else "normal",
-                        }
-                    )
+                    rows.append({"point_a": a_name, "point_b": b_name, "group_a": group_a, "group_b": group_b, "aspect": aspect_name, "angle": angle, "orb": round(delta, 4), "exactness": "tight" if delta <= 1 else "normal"})
                     break
     rows.sort(key=lambda x: x["orb"])
     return rows
@@ -430,6 +401,15 @@ def _enrich_points(points: dict[str, dict[str, Any]], cusps: list[float]) -> dic
     return enriched
 
 
+def _fix_angle_houses(angles: dict[str, dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    fixed = dict(angles)
+    for angle_name, house in ANGLE_HOUSES.items():
+        if angle_name in fixed:
+            fixed[angle_name]["house"] = house
+            fixed[angle_name]["house_assignment_rule"] = "Angular point fixed by definition, not recalculated as floating point within Placidus cusps."
+    return fixed
+
+
 def _quality_warnings(request: NatalCalculationRequest, planets: dict[str, Any]) -> list[str]:
     warnings = []
     if "Hiron" not in planets:
@@ -538,7 +518,7 @@ def calculate_natal(request: NatalCalculationRequest) -> dict[str, Any]:
         planet_rows["Južni čvor"] = sn
 
     sect_data = _sect(planet_rows["Sunce"]["longitude"], cusps)
-    angles_enriched = _enrich_points({k: v for k, v in angles.items() if isinstance(v, dict)}, cusps)
+    angles_enriched = _fix_angle_houses(_enrich_points({k: v for k, v in angles.items() if isinstance(v, dict)}, cusps))
     planet_rows = _enrich_points(planet_rows, cusps)
     lots = _arabic_lots(angles_enriched, planet_rows, cusps, sect_data["sect"])
     lots = _enrich_points(lots, cusps)
