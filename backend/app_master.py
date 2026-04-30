@@ -73,6 +73,29 @@ def _safe_astro_natal(request: NatalCalculationRequest):
     return result
 
 
+def _safe_astro_predictive(request: PredictiveCalculationRequest):
+    result = calculate_predictive(request)
+    natal_request = NatalCalculationRequest(
+        birth_date=request.birth_date,
+        birth_time=request.birth_time,
+        birth_place=request.birth_place,
+        calculation_date=request.calculation_date or request.prediction_start,
+        house_system=request.house_system,
+        zodiac=request.zodiac,
+    )
+    try:
+        natal = _safe_astro_natal(natal_request)
+        result["natal_book_of_data"] = natal.get("book_of_data")
+        result["natal_proof_book"] = natal.get("proof_book")
+        result["natal_aspect_sets"] = natal.get("aspect_sets")
+        result.setdefault("quality_warnings", []).append("Natal Book of Data inside predictive package was reprocessed through astro_rules and includes natal_proof_book.")
+    except Exception as exc:
+        warning = f"Predictive natal reprocessing failed and original natal_book_of_data was kept: {exc.__class__.__name__}: {str(exc)}"
+        result.setdefault("quality_warnings", []).append(warning)
+        result["natal_reprocess_error"] = warning
+    return result
+
+
 @app.post("/assistant/respond")
 def assistant_respond(request: AssistantRequest):
     extraction = extract_payload(
@@ -113,7 +136,7 @@ def astro_natal(request: NatalCalculationRequest):
 
 @app.post("/astro/predictive")
 def astro_predictive(request: PredictiveCalculationRequest):
-    return calculate_predictive(request)
+    return _safe_astro_predictive(request)
 
 
 @app.post("/intent/extract")
