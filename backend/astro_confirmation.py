@@ -271,6 +271,32 @@ def _status(score: float, counts: dict[str, int]) -> str:
     return "insufficient"
 
 
+def _capped_score(raw_score: float, status: str, counts: dict[str, int]) -> float:
+    """Keep the public score aligned with the permission status.
+
+    A theme can collect many exact timing hits, but if it is missing the required
+    structural layers it must not visually look like a headline event.
+    """
+    structural_layers = _structural_layer_count(counts)
+    has_annual_or_solar = counts.get("annual", 0) > 0 or counts.get("solar", 0) > 0
+    has_primary_direction = counts.get("primary_progression", 0) > 0 or counts.get("primary_solar_arc", 0) > 0
+    if status == "strong":
+        return raw_score
+    if status == "moderate":
+        # Moderate is useful for narrative direction, but not a hard event claim.
+        return min(raw_score, 8.25)
+    if status == "weak":
+        cap = 5.75
+        if not has_annual_or_solar:
+            cap = min(cap, 5.25)
+        if not has_primary_direction:
+            cap = min(cap, 4.75)
+        if structural_layers < 2:
+            cap = min(cap, 4.5)
+        return min(raw_score, cap)
+    return min(raw_score, 2.75)
+
+
 def _interpretation_permission(status: str) -> str:
     if status == "strong":
         return "allowed"
@@ -325,21 +351,23 @@ def build_confirmation_matrix(result: dict[str, Any]) -> dict[str, Any]:
             "lunar": len(lunar_triggers),
         }
 
-        score = 0.0
-        score += min(2, len(core_natal)) * 1.25
-        score += min(2, len(natal_basis) - len(core_natal)) * 0.35
-        score += annual_activation.get("score", 0)
-        score += sum(float(row.get("score") or 0) for row in solar_support_all[:4])
-        score += min(3.5, sum(row.get("confirmation_weight", 0) for row in progression_support[:2]))
-        score += min(4.0, sum(row.get("confirmation_weight", 0) for row in solar_arc_support[:2]))
-        score += min(1.0, sum(row.get("confirmation_weight", 0) for row in transit_timing[:4]))
-        score += 0.25 if lunar_triggers and (progression_support or solar_arc_support) else 0
+        raw_score = 0.0
+        raw_score += min(2, len(core_natal)) * 1.25
+        raw_score += min(2, len(natal_basis) - len(core_natal)) * 0.35
+        raw_score += annual_activation.get("score", 0)
+        raw_score += sum(float(row.get("score") or 0) for row in solar_support_all[:4])
+        raw_score += min(3.5, sum(row.get("confirmation_weight", 0) for row in progression_support[:2]))
+        raw_score += min(4.0, sum(row.get("confirmation_weight", 0) for row in solar_arc_support[:2]))
+        raw_score += min(1.0, sum(row.get("confirmation_weight", 0) for row in transit_timing[:4]))
+        raw_score += 0.25 if lunar_triggers and (progression_support or solar_arc_support) else 0
 
-        status = _status(score, counts)
+        status = _status(raw_score, counts)
+        visible_score = _capped_score(raw_score, status, counts)
         matrix[theme_key] = {
             "label": theme["label"],
             "status": status,
-            "confirmation_score": round(score, 2),
+            "confirmation_score": round(visible_score, 2),
+            "raw_confirmation_score": round(raw_score, 2),
             "layer_counts": counts,
             "natal_basis": natal_basis,
             "annual_activation": annual_activation,
@@ -356,11 +384,12 @@ def build_confirmation_matrix(result: dict[str, Any]) -> dict[str, Any]:
         "rules": {
             "strong": "Core natal basis + annual/solar activation + primary progression or solar arc + at least 3 structural layers. Transits only time the event.",
             "moderate": "Core natal basis + annual/solar activation + primary progression or solar arc + at least 2 structural layers. Interpret cautiously, not as a guaranteed headline event.",
-            "weak": "Core natal basis plus limited support; mention as tendency only.",
+            "weak": "Core natal basis plus limited support; mention as tendency only. Public score is capped so weak themes do not look like headline events.",
             "insufficient": "Do not claim a concrete event. Context only.",
             "primary_theme_match_rule": "A contact must directly touch a theme house, angle, or theme planet. Generic contacts are not allowed to confirm many unrelated themes.",
             "contact_reuse_rule": "One progression/solar-arc contact can feed only its best direct themes, usually no more than two. Transit contacts are restricted to one timing theme.",
             "transit_rule": "Fast transits and lunar returns are timing only. They cannot lift a theme to strong by themselves.",
+            "score_cap_rule": "The public confirmation_score is capped by status/layer completeness; raw_confirmation_score is kept for debugging.",
             "solar_rule": "Solar return planet-only support without house placement is weak support, not a full structural layer.",
             "lot_midpoint_rule": "Arabic lots and midpoints are secondary natal context. They do not carry the same confirmation weight as planets or angles.",
         },
