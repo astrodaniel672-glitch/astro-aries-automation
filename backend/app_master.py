@@ -8,6 +8,7 @@ try:
     from backend.astro_confirmation import build_confirmation_matrix
     from backend.astro_dignity import enhance_with_dignities
     from backend.astro_engine import NatalCalculationRequest, calculate_natal
+    from backend.astro_full_report_writer import FullReportWriteRequest, write_full_report
     from backend.astro_interpreter import PredictiveInterpretRequest, interpret_predictive_payload
     from backend.astro_predictive import PredictiveCalculationRequest, calculate_predictive
     from backend.astro_report_writer import PredictiveReportWriteRequest, write_predictive_report_payload
@@ -31,6 +32,7 @@ except ModuleNotFoundError:
     from astro_confirmation import build_confirmation_matrix
     from astro_dignity import enhance_with_dignities
     from astro_engine import NatalCalculationRequest, calculate_natal
+    from astro_full_report_writer import FullReportWriteRequest, write_full_report
     from astro_interpreter import PredictiveInterpretRequest, interpret_predictive_payload
     from astro_predictive import PredictiveCalculationRequest, calculate_predictive
     from astro_report_writer import PredictiveReportWriteRequest, write_predictive_report_payload
@@ -175,6 +177,11 @@ def astro_interpret_predictive(request: PredictiveInterpretRequest):
 @app.post("/astro/write-predictive-report")
 def astro_write_predictive_report(request: PredictiveReportWriteRequest):
     return write_predictive_report_payload(request)
+
+
+@app.post("/astro/write-full-report")
+def astro_write_full_report(request: FullReportWriteRequest):
+    return write_full_report(request)
 
 
 @app.post("/intent/extract")
