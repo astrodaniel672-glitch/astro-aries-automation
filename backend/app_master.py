@@ -10,6 +10,7 @@ try:
     from backend.astro_engine import NatalCalculationRequest, calculate_natal
     from backend.astro_interpreter import PredictiveInterpretRequest, interpret_predictive_payload
     from backend.astro_predictive import PredictiveCalculationRequest, calculate_predictive
+    from backend.astro_report_writer import PredictiveReportWriteRequest, write_predictive_report_payload
     from backend.astro_rules import enhance_with_rules
     from backend.astro_timeline import enhance_with_timeline
     from backend.conversation_memory import (
@@ -32,6 +33,7 @@ except ModuleNotFoundError:
     from astro_engine import NatalCalculationRequest, calculate_natal
     from astro_interpreter import PredictiveInterpretRequest, interpret_predictive_payload
     from astro_predictive import PredictiveCalculationRequest, calculate_predictive
+    from astro_report_writer import PredictiveReportWriteRequest, write_predictive_report_payload
     from astro_rules import enhance_with_rules
     from astro_timeline import enhance_with_timeline
     from conversation_memory import (
@@ -106,7 +108,7 @@ def _safe_astro_predictive(request: PredictiveCalculationRequest):
         result.setdefault("quality_warnings", []).append(warning)
     try:
         result["confirmation_matrix"] = build_confirmation_matrix(result)
-        result.setdefault("quality_warnings", []).append("confirmation_matrix added: concrete event claims require moderate or strong confirmation status.")
+        result.setdefault("quality_warnings", []).append("confirmation_matrix added: concrete event claims require strict strong confirmation status; narrative focus is separated from hard-event claims.")
     except Exception as exc:
         warning = f"Confirmation matrix failed and was skipped: {exc.__class__.__name__}: {str(exc)}"
         result.setdefault("quality_warnings", []).append(warning)
@@ -168,6 +170,11 @@ def astro_predictive(request: PredictiveCalculationRequest):
 @app.post("/astro/interpret-predictive")
 def astro_interpret_predictive(request: PredictiveInterpretRequest):
     return interpret_predictive_payload(request)
+
+
+@app.post("/astro/write-predictive-report")
+def astro_write_predictive_report(request: PredictiveReportWriteRequest):
+    return write_predictive_report_payload(request)
 
 
 @app.post("/intent/extract")
