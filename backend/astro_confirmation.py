@@ -304,6 +304,7 @@ def _astrological_narrative_classification(theme_key: str, row: dict[str, Any]) 
     has_core_natal = counts.get("core_natal", 0) > 0
     has_annual = counts.get("annual", 0) > 0
     has_solar = counts.get("solar", 0) > 0
+    has_annual_or_solar = has_annual or has_solar
     has_direction = counts.get("primary_progression", 0) > 0 or counts.get("primary_solar_arc", 0) > 0
     has_timing = counts.get("transit", 0) > 0 or counts.get("fast_timing", 0) > 0 or counts.get("lunar", 0) > 0
 
@@ -311,7 +312,7 @@ def _astrological_narrative_classification(theme_key: str, row: dict[str, Any]) 
         level = "hard_event_allowed"
         narrative_mode = "concrete_event_allowed"
         can_claim = True
-    elif has_core_natal and score >= 5.25 and structural_layers >= 2 and (has_annual or has_solar or has_direction):
+    elif has_core_natal and has_annual_or_solar and has_direction and score >= 5.25 and structural_layers >= 2:
         level = "main_narrative_focus"
         narrative_mode = "main_theme_without_event_claim"
         can_claim = False
@@ -336,7 +337,7 @@ def _astrological_narrative_classification(theme_key: str, row: dict[str, Any]) 
         "must_be_cautious": not can_claim,
         "world_rule_basis": {
             "natal_promise_required": has_core_natal,
-            "annual_or_solar_activation": bool(has_annual or has_solar),
+            "annual_or_solar_activation": bool(has_annual_or_solar),
             "progression_or_solar_arc_direction": has_direction,
             "timing_only_present": has_timing,
             "structural_layer_count": structural_layers,
@@ -347,6 +348,16 @@ def _astrological_narrative_classification(theme_key: str, row: dict[str, Any]) 
             else "Formulisati kao naglašenu temu, proces, pritisak, potrebu za odlukom ili tendenciju; bez tvrdnje da će se događaj sigurno desiti."
         ),
     }
+
+
+def _as_supporting_tendency(item: dict[str, Any]) -> dict[str, Any]:
+    downgraded = dict(item)
+    downgraded["astrological_level"] = "supporting_tendency"
+    downgraded["narrative_mode"] = "brief_tendency_only"
+    downgraded["can_claim_concrete_event"] = False
+    downgraded["must_be_cautious"] = True
+    downgraded["wording_rule"] = "Pomenuti kratko kao sporednu tendenciju ili pozadinski pritisak; bez tvrdnje da će se događaj sigurno desiti."
+    return downgraded
 
 
 def _build_astrological_theme_groups(matrix: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
@@ -362,7 +373,7 @@ def _build_astrological_theme_groups(matrix: dict[str, Any]) -> dict[str, list[d
     blocked.sort(key=lambda item: item["theme"])
 
     main_focus = narrative_focus[:NARRATIVE_FOCUS_MAX_THEMES]
-    remaining_supporting = narrative_focus[NARRATIVE_FOCUS_MAX_THEMES:] + supporting
+    remaining_supporting = [_as_supporting_tendency(item) for item in narrative_focus[NARRATIVE_FOCUS_MAX_THEMES:]] + supporting
     remaining_supporting.sort(key=lambda item: (-float(item.get("confirmation_score") or 0), item["theme"]))
 
     return {
@@ -451,7 +462,7 @@ def build_confirmation_matrix(result: dict[str, Any]) -> dict[str, Any]:
         "rules": {
             "method_hierarchy": "World-standard predictive hierarchy: natal promise first, annual profection and solar return as yearly frame, secondary progressions/solar arc as development/direction, transits and lunar returns as timing only.",
             "hard_event": "Concrete event wording requires core natal promise + annual/solar activation + primary progression or solar arc + at least 3 structural layers. Transits may time, not create the event.",
-            "narrative_focus": "A theme may become main narrative focus with core natal promise plus at least two structural layers, but it must be written as a process/tendency unless hard_event is met.",
+            "narrative_focus": "Main narrative focus requires core natal promise + annual/solar activation + progression/solar-arc direction + at least 2 structural layers. Without annual/solar activation, a theme is supporting tendency only.",
             "supporting_tendency": "Supporting themes can be mentioned briefly as tendencies, background pressure or timing sensitivity only.",
             "blocked": "Insufficient themes must not be turned into predictions.",
             "moderate_policy": "Moderate is intentionally not emitted as an event status until the interpretive payload builder separates moderate from allowed concrete claims.",
