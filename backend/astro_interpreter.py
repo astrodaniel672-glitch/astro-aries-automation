@@ -35,7 +35,6 @@ def _theme_block(theme_key: str, theme: dict[str, Any]) -> dict[str, Any]:
     status = theme.get("status")
     permission = theme.get("interpretation_permission")
     allowed = status in ALLOWED_STATUSES or permission == "allowed"
-    cautious = status in CAUTION_STATUSES or permission == "caution_only"
     blocked = status in BLOCKED_STATUSES or permission == "blocked"
     return {
         "theme": theme_key,
@@ -89,7 +88,7 @@ def _build_fallback_theme_groups(themes: dict[str, Any], ranked: list[dict[str, 
             block["astrological_level"] = "hard_event_allowed"
             block["narrative_mode"] = "concrete_event_allowed"
             hard_event_blocks.append(block)
-        elif has_core_natal and score >= 5.25 and structural_layers >= 2 and (has_annual_or_solar or has_direction):
+        elif has_core_natal and has_annual_or_solar and has_direction and score >= 5.25 and structural_layers >= 2:
             block["astrological_level"] = "main_narrative_focus"
             block["narrative_mode"] = "main_theme_without_event_claim"
             block["wording_rule"] = "Formulisati kao glavnu aktiviranu oblast, proces, pritisak ili potrebu za odlukom; bez tvrdnje da će se događaj sigurno desiti."
@@ -141,8 +140,8 @@ def build_interpretation_payload(data: dict[str, Any], client_name: str | None =
             "source": "Interpret only from predictive calculation JSON.",
             "method_hierarchy": "Natal promise first; annual profection and solar return frame the year; progressions and solar arc confirm development; transits and lunar returns time the manifestation only.",
             "allowed": "Concrete event wording allowed only for hard_event_theme_blocks / confirmation_matrix status strong.",
-            "narrative_focus": "Narrative focus themes may be written as active life themes, processes, pressure points or decisions, but not as guaranteed events.",
-            "supporting_tendency": "Supporting themes may be mentioned briefly as tendencies only.",
+            "narrative_focus": "Main narrative focus requires natal promise + annual or solar activation + progression/solar-arc direction + at least two structural layers. Write it as an active theme/process, not as a guaranteed event.",
+            "supporting_tendency": "Supporting themes may be mentioned briefly as tendencies, background pressure or timing sensitivity only; they are not report headline claims.",
             "insufficient": "Insufficient themes must not be turned into predictions.",
             "transit_rule": "Transits are timing, not standalone proof.",
             "tone": "Serbian, professional astrologer voice, direct but not fatalistic.",
