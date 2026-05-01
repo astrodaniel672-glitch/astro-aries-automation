@@ -22,6 +22,7 @@ FAST_TIMING_POINTS = {"Mesec", "Sunce", "Merkur", "Venera"}
 SLOW_OR_STRUCTURAL_POINTS = {"Mars", "Jupiter", "Saturn", "Uran", "Neptun", "Pluton", "Severni čvor", "Južni čvor", "ASC", "DSC", "MC", "IC"}
 STRUCTURAL_SOURCE_LIMITS = {"progression": 2, "solar_arc": 2, "transit": 1}
 WEAK_NATAL_SOURCES = {"arabic_lots", "midpoints"}
+NARRATIVE_FOCUS_MAX_THEMES = 4
 
 
 def _safe_int(value: Any) -> int | None:
@@ -264,20 +265,12 @@ def _status(score: float, counts: dict[str, int]) -> str:
     has_annual_or_solar = counts.get("annual", 0) > 0 or counts.get("solar", 0) > 0
     if has_core_natal and has_annual_or_solar and has_primary_direction and structural_layers >= 3 and score >= 9.5:
         return "strong"
-    # Anything below strong is deliberately treated as caution-only for the
-    # interpretive payload builder, which currently allows concrete event
-    # wording for status in {strong, moderate}.
     if has_core_natal and (has_primary_direction or has_annual_or_solar) and score >= 4.0:
         return "weak"
     return "insufficient"
 
 
 def _capped_score(raw_score: float, status: str, counts: dict[str, int]) -> float:
-    """Keep the public score aligned with the permission status.
-
-    A theme can collect many exact timing hits, but if it is missing the required
-    structural layers it must not visually look like a headline event.
-    """
     structural_layers = _structural_layer_count(counts)
     has_annual_or_solar = counts.get("annual", 0) > 0 or counts.get("solar", 0) > 0
     has_primary_direction = counts.get("primary_progression", 0) > 0 or counts.get("primary_solar_arc", 0) > 0
@@ -301,6 +294,83 @@ def _interpretation_permission(status: str) -> str:
     if status == "weak":
         return "caution_only"
     return "blocked"
+
+
+def _astrological_narrative_classification(theme_key: str, row: dict[str, Any]) -> dict[str, Any]:
+    counts = row.get("layer_counts", {}) or {}
+    score = float(row.get("confirmation_score") or 0)
+    status = row.get("status")
+    structural_layers = _structural_layer_count(counts)
+    has_core_natal = counts.get("core_natal", 0) > 0
+    has_annual = counts.get("annual", 0) > 0
+    has_solar = counts.get("solar", 0) > 0
+    has_direction = counts.get("primary_progression", 0) > 0 or counts.get("primary_solar_arc", 0) > 0
+    has_timing = counts.get("transit", 0) > 0 or counts.get("fast_timing", 0) > 0 or counts.get("lunar", 0) > 0
+
+    if status == "strong":
+        level = "hard_event_allowed"
+        narrative_mode = "concrete_event_allowed"
+        can_claim = True
+    elif has_core_natal and score >= 5.25 and structural_layers >= 2 and (has_annual or has_solar or has_direction):
+        level = "main_narrative_focus"
+        narrative_mode = "main_theme_without_event_claim"
+        can_claim = False
+    elif status == "weak":
+        level = "supporting_tendency"
+        narrative_mode = "brief_tendency_only"
+        can_claim = False
+    else:
+        level = "blocked"
+        narrative_mode = "do_not_interpret_as_prediction"
+        can_claim = False
+
+    return {
+        "theme": theme_key,
+        "label": row.get("label"),
+        "status": status,
+        "confirmation_score": row.get("confirmation_score"),
+        "raw_confirmation_score": row.get("raw_confirmation_score"),
+        "astrological_level": level,
+        "narrative_mode": narrative_mode,
+        "can_claim_concrete_event": can_claim,
+        "must_be_cautious": not can_claim,
+        "world_rule_basis": {
+            "natal_promise_required": has_core_natal,
+            "annual_or_solar_activation": bool(has_annual or has_solar),
+            "progression_or_solar_arc_direction": has_direction,
+            "timing_only_present": has_timing,
+            "structural_layer_count": structural_layers,
+        },
+        "wording_rule": (
+            "Može se formulisati kao konkretan događaj samo ako je hard_event_allowed."
+            if can_claim
+            else "Formulisati kao naglašenu temu, proces, pritisak, potrebu za odlukom ili tendenciju; bez tvrdnje da će se događaj sigurno desiti."
+        ),
+    }
+
+
+def _build_astrological_theme_groups(matrix: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    classified = [_astrological_narrative_classification(theme_key, row) for theme_key, row in matrix.items()]
+    hard_allowed = [item for item in classified if item["astrological_level"] == "hard_event_allowed"]
+    narrative_focus = [item for item in classified if item["astrological_level"] == "main_narrative_focus"]
+    supporting = [item for item in classified if item["astrological_level"] == "supporting_tendency"]
+    blocked = [item for item in classified if item["astrological_level"] == "blocked"]
+
+    hard_allowed.sort(key=lambda item: (-float(item.get("confirmation_score") or 0), item["theme"]))
+    narrative_focus.sort(key=lambda item: (-float(item.get("confirmation_score") or 0), item["theme"]))
+    supporting.sort(key=lambda item: (-float(item.get("confirmation_score") or 0), item["theme"]))
+    blocked.sort(key=lambda item: item["theme"])
+
+    main_focus = narrative_focus[:NARRATIVE_FOCUS_MAX_THEMES]
+    remaining_supporting = narrative_focus[NARRATIVE_FOCUS_MAX_THEMES:] + supporting
+    remaining_supporting.sort(key=lambda item: (-float(item.get("confirmation_score") or 0), item["theme"]))
+
+    return {
+        "hard_event_theme_blocks": hard_allowed,
+        "narrative_focus_theme_blocks": main_focus,
+        "supporting_tendency_theme_blocks": remaining_supporting,
+        "blocked_theme_blocks": blocked,
+    }
 
 
 def build_confirmation_matrix(result: dict[str, Any]) -> dict[str, Any]:
@@ -376,11 +446,14 @@ def build_confirmation_matrix(result: dict[str, Any]) -> dict[str, Any]:
         }
 
     ranked = sorted(matrix.items(), key=lambda kv: kv[1]["confirmation_score"], reverse=True)
+    theme_groups = _build_astrological_theme_groups(matrix)
     return {
         "rules": {
-            "strong": "Core natal basis + annual/solar activation + primary progression or solar arc + at least 3 structural layers. Only this status may support concrete event wording.",
-            "weak": "Core natal basis plus limited support; mention as tendency only. Public score is capped so weak themes do not look like headline events.",
-            "insufficient": "Do not claim a concrete event. Context only.",
+            "method_hierarchy": "World-standard predictive hierarchy: natal promise first, annual profection and solar return as yearly frame, secondary progressions/solar arc as development/direction, transits and lunar returns as timing only.",
+            "hard_event": "Concrete event wording requires core natal promise + annual/solar activation + primary progression or solar arc + at least 3 structural layers. Transits may time, not create the event.",
+            "narrative_focus": "A theme may become main narrative focus with core natal promise plus at least two structural layers, but it must be written as a process/tendency unless hard_event is met.",
+            "supporting_tendency": "Supporting themes can be mentioned briefly as tendencies, background pressure or timing sensitivity only.",
+            "blocked": "Insufficient themes must not be turned into predictions.",
             "moderate_policy": "Moderate is intentionally not emitted as an event status until the interpretive payload builder separates moderate from allowed concrete claims.",
             "primary_theme_match_rule": "A contact must directly touch a theme house, angle, or theme planet. Generic contacts are not allowed to confirm many unrelated themes.",
             "contact_reuse_rule": "One progression/solar-arc contact can feed only its best direct themes, usually no more than two. Transit contacts are restricted to one timing theme.",
@@ -390,5 +463,9 @@ def build_confirmation_matrix(result: dict[str, Any]) -> dict[str, Any]:
             "lot_midpoint_rule": "Arabic lots and midpoints are secondary natal context. They do not carry the same confirmation weight as planets or angles.",
         },
         "ranked_themes": [{"theme": key, "label": value["label"], "status": value["status"], "confirmation_score": value["confirmation_score"]} for key, value in ranked],
+        "astrological_theme_groups": theme_groups,
+        "narrative_focus_theme_blocks": theme_groups["narrative_focus_theme_blocks"],
+        "supporting_tendency_theme_blocks": theme_groups["supporting_tendency_theme_blocks"],
+        "hard_event_theme_blocks": theme_groups["hard_event_theme_blocks"],
         "themes": matrix,
     }
