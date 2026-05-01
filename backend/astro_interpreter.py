@@ -31,12 +31,120 @@ def _top_rows(rows: list[dict[str, Any]], limit: int = 4) -> list[str]:
     return [_fmt_contact(row) for row in (rows or [])[:limit]]
 
 
+def _text_blob(block: dict[str, Any]) -> str:
+    parts: list[str] = []
+    evidence = block.get("evidence", {}) or {}
+    for key in ["natal_basis", "progression_support", "solar_arc_support", "transit_timing"]:
+        value = evidence.get(key, [])
+        if isinstance(value, list):
+            parts.extend(str(x) for x in value)
+    annual = evidence.get("annual_activation") or {}
+    parts.append(str(annual.get("active_house", "")))
+    parts.append(str(annual.get("lord_of_year", "")))
+    return " | ".join(parts)
+
+
+def _contains_any(text: str, words: list[str]) -> bool:
+    low = text.lower()
+    return any(word.lower() in low for word in words)
+
+
+def _manifestation_profile(block: dict[str, Any]) -> dict[str, Any]:
+    """Classify the likely life manifestation without inventing an event.
+
+    This is a discrimination layer for the writing model: it separates, for example,
+    career status pressure from a company change or daily job-role change.
+    """
+    theme = block.get("theme")
+    level = block.get("astrological_level")
+    can_claim = bool(block.get("can_claim_concrete_event"))
+    counts = block.get("layer_counts", {}) or {}
+    evidence_text = _text_blob(block)
+    annual = (block.get("evidence", {}) or {}).get("annual_activation", {}) or {}
+    active_house = annual.get("active_house")
+    lord = annual.get("lord_of_year")
+
+    profile: dict[str, Any] = {
+        "primary_manifestation": "active_life_theme" if level == "main_narrative_focus" else "background_tendency",
+        "concreteness_level": "hard_event" if can_claim else ("active_process" if level == "main_narrative_focus" else "background_pressure"),
+        "can_state_as_event": can_claim,
+        "must_not_overstate": not can_claim,
+        "supported_claims": [],
+        "forbidden_claims": [],
+        "discrimination_basis": {
+            "annual_active_house": active_house,
+            "lord_of_year": lord,
+            "has_progression": counts.get("primary_progression", 0) > 0,
+            "has_solar_arc": counts.get("primary_solar_arc", 0) > 0,
+            "has_solar_house_activation": counts.get("solar", 0) > 0,
+            "has_timing": counts.get("transit", 0) > 0 or counts.get("fast_timing", 0) > 0 or counts.get("lunar", 0) > 0,
+        },
+    }
+
+    if theme == "career_status":
+        mc_hit = _contains_any(evidence_text, ["MC", "Sunce", "Saturn", "Jupiter"])
+        six_house_signature = _contains_any(evidence_text, ["6", "Merkur", "Mars", "rutina"])
+        contract_signature = _contains_any(evidence_text, ["Merkur", "3", "7", "ugovor", "papir"])
+        company_signature = _contains_any(evidence_text, ["DSC", "7", "11", "Uran", "Pluton"])
+        if mc_hit:
+            profile["primary_manifestation"] = "career_direction_status_or_authority_pressure"
+            profile["supported_claims"].append("Sme se pisati o promeni profesionalnog pravca, statusa, odnosa prema autoritetu ili načina na koji se osoba pozicionira.")
+        if six_house_signature and counts.get("annual", 0) > 0:
+            profile["supported_claims"].append("Moguća je promena svakodnevnog radnog režima, obaveza ili načina rada, ali samo kao proces ako nema hard_event potvrde.")
+        if contract_signature:
+            profile["supported_claims"].append("Papiri, dogovori, komunikacija i formalizacija mogu biti kanal kroz koji se karijerna tema pomera.")
+        if company_signature and counts.get("solar", 0) > 0:
+            profile["supported_claims"].append("Tek uz jaču potvrdu 7/11/10 sloja sme se govoriti o promeni firme ili tima.")
+        profile["forbidden_claims"].extend([
+            "Ne tvrditi siguran otkaz, promenu firme ili novu poziciju ako hard_event_theme_blocks ne postoji.",
+            "Ne tvrditi unapređenje ako nema jakog MC/Sunce/Saturn/Jupiter lanca i hard-event dozvole.",
+            "Ne pretvarati tranzite Marsa/Merkura u samostalan dokaz za promenu posla.",
+        ])
+        if can_claim:
+            profile["concreteness_level"] = "career_hard_event"
+        elif mc_hit and counts.get("annual", 0) > 0 and counts.get("primary_solar_arc", 0) > 0:
+            profile["concreteness_level"] = "career_status_process"
+
+    elif theme == "communication_learning":
+        profile["primary_manifestation"] = "papers_learning_communication_or_decision_process"
+        profile["supported_claims"].append("Sme se pisati o papirima, dogovorima, učenju, komunikaciji, pregovorima i načinu razmišljanja kao aktivnom kanalu perioda.")
+        profile["forbidden_claims"].append("Ne tvrditi potpis ugovora ili zvanično rešenje ako nema hard-event potvrde i preciznog datuma.")
+
+    elif theme == "identity_vitality":
+        profile["primary_manifestation"] = "identity_direction_body_energy_and_personal_positioning"
+        profile["supported_claims"].append("Sme se pisati o promeni ličnog nastupa, pravca, samopouzdanja, tela/energije i načina predstavljanja.")
+        profile["forbidden_claims"].append("Ne tvrditi zdravstveni događaj, operaciju ili fizičku krizu bez posebnog hard-event dokaza.")
+
+    elif theme == "home_family":
+        profile["primary_manifestation"] = "home_family_private_base_background_pressure"
+        profile["supported_claims"].append("Sme se pomenuti pritisak oko doma, privatne osnove, porodice ili organizacije prostora kao sporedna tema.")
+        profile["forbidden_claims"].append("Ne tvrditi sigurnu selidbu, kupovinu/prodaju nekretnine ili porodični preokret bez annual/solar aktivacije i hard-event potvrde.")
+
+    elif theme == "money_values":
+        profile["primary_manifestation"] = "money_values_income_and_resource_pressure"
+        profile["supported_claims"].append("Sme se pomenuti finansijski pritisak, vrednovanje rada, troškovi ili potreba za pametnijim upravljanjem resursima.")
+        profile["forbidden_claims"].append("Ne tvrditi veliki dobitak, gubitak, kredit ili nasledstvo bez aktivacije 2/8 sloja i hard-event potvrde.")
+
+    elif theme == "relationships_marriage":
+        profile["primary_manifestation"] = "relationship_contract_or_partner_background_pressure"
+        profile["supported_claims"].append("Sme se pomenuti tema odnosa, dogovora, partnerstva ili javnog odnosa kao sporedna tendencija.")
+        profile["forbidden_claims"].append("Ne tvrditi ulazak u brak, razvod, prekid ili novu vezu bez jasnog 5/7/Venera/Mars/DSC hard-event lanca.")
+
+    else:
+        profile["supported_claims"].append("Tema se sme koristiti samo u okviru nivoa koji joj je dodeljen: main_narrative_focus ili supporting_tendency.")
+        profile["forbidden_claims"].append("Ne pretvarati temu u konkretan događaj ako can_claim_concrete_event nije true.")
+
+    if not profile["supported_claims"]:
+        profile["supported_claims"].append("Sme se opisati samo kao opšti pritisak u okviru potvrđenog tematskog bloka.")
+    return profile
+
+
 def _theme_block(theme_key: str, theme: dict[str, Any]) -> dict[str, Any]:
     status = theme.get("status")
     permission = theme.get("interpretation_permission")
     allowed = status in ALLOWED_STATUSES or permission == "allowed"
     blocked = status in BLOCKED_STATUSES or permission == "blocked"
-    return {
+    block = {
         "theme": theme_key,
         "label": theme.get("label"),
         "status": status,
@@ -57,6 +165,8 @@ def _theme_block(theme_key: str, theme: dict[str, Any]) -> dict[str, Any]:
             "lunar_triggers": theme.get("lunar_triggers", [])[:4],
         },
     }
+    block["manifestation_profile"] = _manifestation_profile(block)
+    return block
 
 
 def _enrich_group_item(item: dict[str, Any], themes: dict[str, Any]) -> dict[str, Any]:
@@ -64,6 +174,7 @@ def _enrich_group_item(item: dict[str, Any], themes: dict[str, Any]) -> dict[str
     source_theme = themes.get(theme_key, {}) if theme_key else {}
     block = _theme_block(theme_key, source_theme) if theme_key and source_theme else dict(item)
     block.update({k: v for k, v in item.items() if v is not None})
+    block["manifestation_profile"] = _manifestation_profile(block)
     return block
 
 
@@ -92,11 +203,13 @@ def _build_fallback_theme_groups(themes: dict[str, Any], ranked: list[dict[str, 
             block["astrological_level"] = "main_narrative_focus"
             block["narrative_mode"] = "main_theme_without_event_claim"
             block["wording_rule"] = "Formulisati kao glavnu aktiviranu oblast, proces, pritisak ili potrebu za odlukom; bez tvrdnje da će se događaj sigurno desiti."
+            block["manifestation_profile"] = _manifestation_profile(block)
             narrative_focus_blocks.append(block)
         elif not block["blocked_for_event_claims"]:
             block["astrological_level"] = "supporting_tendency"
             block["narrative_mode"] = "brief_tendency_only"
             block["wording_rule"] = "Pomenuti kratko kao sporednu tendenciju ili pozadinski pritisak."
+            block["manifestation_profile"] = _manifestation_profile(block)
             supporting_blocks.append(block)
         else:
             blocked_blocks.append({"theme": key, "label": block.get("label"), "status": block.get("status"), "rule": "Do not claim concrete event."})
@@ -140,6 +253,7 @@ def build_interpretation_payload(data: dict[str, Any], client_name: str | None =
             "source": "Interpret only from predictive calculation JSON.",
             "method_hierarchy": "Natal promise first; annual profection and solar return frame the year; progressions and solar arc confirm development; transits and lunar returns time the manifestation only.",
             "allowed": "Concrete event wording allowed only for hard_event_theme_blocks / confirmation_matrix status strong.",
+            "manifestation_discrimination": "The writing layer must use manifestation_profile to distinguish change of job, company, position, contract, income, home or relationship. If a specific subtype is forbidden, it must not be claimed.",
             "narrative_focus": "Main narrative focus requires natal promise + annual or solar activation + progression/solar-arc direction + at least two structural layers. Write it as an active theme/process, not as a guaranteed event.",
             "supporting_tendency": "Supporting themes may be mentioned briefly as tendencies, background pressure or timing sensitivity only; they are not report headline claims.",
             "insufficient": "Insufficient themes must not be turned into predictions.",
