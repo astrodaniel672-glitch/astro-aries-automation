@@ -58,22 +58,22 @@ NATAL_SECTIONS = {
 
 
 SECTION_TITLES = {
-    "intro": "Uvod",
-    "identity_vitality": "Osnovni pečat karte — ko si, kako te vide i šta nosiš",
-    "money_values": "Finansije, vrednosti i odnos prema novcu",
-    "communication_learning": "Um, komunikacija i blisko okruženje",
-    "home_family": "Dom, porodica i koreni",
-    "love_children_creativity": "Ljubav, talenti, kreativnost i deca",
-    "work_health_routine": "Svakodnevni rad, rutina i zdravlje",
-    "relationships_marriage": "Partnerstvo, brak i odnosi jedan-na-jedan",
-    "crisis_transformation": "Tuđ novac, krize, dugovi i regeneracija",
-    "foreign_higher_education": "Inostranstvo, obrazovanje, pravo i viši smisao",
-    "career_status": "Karijera, status i profesionalni vrh",
-    "friends_networks": "Prijatelji, mreže i rezultati rada",
-    "hidden_endings_psychology": "Karma, podsvest, tajne i završeci",
-    "predictive_scheme": "Prediktivna šema — kako se čita naredni period",
+    "intro": "Dobrodošla u svoju kartu",
+    "identity_vitality": "POGLAVLJE 1\nKo si zapravo — osnovni pečat tvoje karte",
+    "money_values": "POGLAVLJE 2\nNovac, vrednost i cena sigurnosti",
+    "communication_learning": "POGLAVLJE 3\nUm, reč i blisko okruženje",
+    "home_family": "POGLAVLJE 4\nDom, koreni i ono što nosiš iz prvog prostora",
+    "love_children_creativity": "POGLAVLJE 5\nLjubav, talenti, deca i ono što pali dušu",
+    "work_health_routine": "POGLAVLJE 6\nRad, svakodnevica i telo koje govori istinu",
+    "relationships_marriage": "POGLAVLJE 7\nPartnerstvo, brak i ogledalo preko puta tebe",
+    "crisis_transformation": "POGLAVLJE 8\nTuđ novac, krize i mehanizam regeneracije",
+    "foreign_higher_education": "POGLAVLJE 9\nZnanje, inostranstvo, pravo i šira slika života",
+    "career_status": "POGLAVLJE 10\nKarijera, status i profesionalni vrh",
+    "friends_networks": "POGLAVLJE 11\nPrijatelji, mreže i rezultati tvog rada",
+    "hidden_endings_psychology": "POGLAVLJE 12\nKarma, skriveno, podsvest i tihi završeci",
+    "predictive_scheme": "PREDIKCIJE\nKako se čita naredni period",
     "predictive_overview": "Dominanta narednih 12 meseci",
-    "hard_events": "Konkretna dešavanja i granica tvrdnje",
+    "hard_events": "Šta se konkretno aktivira — i gde se ne sme izmišljati",
     "timeline": "Hronologija perioda",
     "direct_answers": "Direktni odgovori na pitanja",
     "final_word": "Završna reč",
@@ -81,25 +81,25 @@ SECTION_TITLES = {
 
 
 SECTION_DEPTH = {
-    "intro": "Napiši 450–700 reči. Uvod mora odmah privući pažnju; ne objašnjavaj predugo šta je izveštaj.",
-    "identity_vitality": "Napiši 1200–1700 reči. Ovo je glavni pečat karte i mora biti dubok, upečatljiv i ličan.",
-    "money_values": "Napiši 1000–1500 reči. Obradi novac životno, sa jasnim razlikovanjem zarade, kriza i tuđeg novca.",
-    "communication_learning": "Napiši 900–1300 reči. Objasni um, govor, učenje, okruženje i greške kroz realne primere.",
-    "home_family": "Napiši 1000–1500 reči. Dom, roditelji i koreni moraju imati dubinu, ali bez izmišljanja događaja.",
-    "love_children_creativity": "Napiši 1000–1500 reči. Razlikuj ljubav, flert, ozbiljnu vezu, decu i kreativnost.",
-    "work_health_routine": "Napiši 1000–1500 reči. Razlikuj radnu rutinu, kolege, obaveze i zdravstvene predispozicije.",
-    "relationships_marriage": "Napiši 1100–1600 reči. Partnerstvo, brak i ugovori moraju biti jasni, direktni i bez lažnih obećanja.",
-    "crisis_transformation": "Napiši 900–1300 reči. 8. kuću obradi ozbiljno, bez senzacionalizma.",
-    "foreign_higher_education": "Napiši 800–1200 reči. Razlikuj znanje, pravo, inostranstvo, put i status kroz obrazovanje.",
-    "career_status": "Napiši 1200–1700 reči. Razlikuj karijeru, status, firmu, poziciju, šefa, kolege, ugovor i stabilnost.",
-    "friends_networks": "Napiši 750–1100 reči. Razlikuj prijatelje, publiku, tim, mreže i rezultate rada.",
-    "hidden_endings_psychology": "Napiši 900–1300 reči. Karmu i 12. kuću piši ozbiljno, bez zastrašivanja.",
-    "predictive_scheme": "Napiši 650–950 reči. Objasni prediktivnu logiku klijentski, bez debug jezika.",
-    "predictive_overview": "Napiši 900–1300 reči. Ovo je pregled narednih 12 meseci, konkretan ali bez tvrdog događaja ako nije dozvoljen.",
-    "hard_events": "Napiši 650–1000 reči. Ako nema tvrdih događaja, objasni šta se aktivira kao proces i šta se ne sme tvrditi.",
-    "timeline": "Napiši 900–1400 reči. Mesece piši kao životni vodič, ne kao listu intenziteta.",
-    "direct_answers": "Napiši 600–1000 reči ili više ako ima pitanja. Odgovaraj direktno: da/ne/delimično, vreme, mehanizam, šta sada.",
-    "final_word": "Napiši 450–750 reči. Završetak mora biti ličan, jak i pamtljiv, bez novih tvrdnji.",
+    "intro": "Napiši 700–1000 reči. Uvod mora zvučati kao ulaz u knjigu, snažno, lično, bez praznih fraza.",
+    "identity_vitality": "Napiši 1500–2200 reči. Ovo je glavni pečat karte i mora biti dubok, upečatljiv i ličan.",
+    "money_values": "Napiši 1300–1900 reči. Obradi novac životno, sa jasnim razlikovanjem zarade, kriza i tuđeg novca.",
+    "communication_learning": "Napiši 1100–1600 reči. Objasni um, govor, učenje, okruženje i greške kroz realne primere.",
+    "home_family": "Napiši 1300–1900 reči. Dom, roditelji i koreni moraju imati dubinu, ali bez izmišljanja događaja.",
+    "love_children_creativity": "Napiši 1300–1900 reči. Razlikuj ljubav, flert, ozbiljnu vezu, decu i kreativnost.",
+    "work_health_routine": "Napiši 1200–1800 reči. Razlikuj radnu rutinu, kolege, obaveze i zdravstvene predispozicije.",
+    "relationships_marriage": "Napiši 1400–2000 reči. Partnerstvo, brak i ugovori moraju biti jasni, direktni i bez lažnih obećanja.",
+    "crisis_transformation": "Napiši 1100–1600 reči. 8. kuću obradi ozbiljno, bez senzacionalizma.",
+    "foreign_higher_education": "Napiši 1000–1500 reči. Razlikuj znanje, pravo, inostranstvo, put i status kroz obrazovanje.",
+    "career_status": "Napiši 1500–2200 reči. Razlikuj karijeru, status, firmu, poziciju, šefa, kolege, ugovor i stabilnost.",
+    "friends_networks": "Napiši 900–1300 reči. Razlikuj prijatelje, publiku, tim, mreže i rezultate rada.",
+    "hidden_endings_psychology": "Napiši 1100–1600 reči. Karmu i 12. kuću piši ozbiljno, bez zastrašivanja.",
+    "predictive_scheme": "Napiši 800–1200 reči. Objasni prediktivnu logiku klijentski, bez debug jezika.",
+    "predictive_overview": "Napiši 1100–1600 reči. Ovo je pregled narednih 12 meseci, konkretan ali bez tvrdog događaja ako nije dozvoljen.",
+    "hard_events": "Napiši 900–1300 reči. Ako nema tvrdih događaja, objasni šta se aktivira kao proces i šta se ne sme tvrditi.",
+    "timeline": "Napiši 1200–1800 reči. Mesece piši kao životni vodič, ne kao listu intenziteta.",
+    "direct_answers": "Napiši 800–1400 reči ili više ako ima pitanja. Odgovaraj direktno: da/ne/delimično, vreme, mehanizam, šta sada.",
+    "final_word": "Napiši 650–950 reči. Završetak mora biti ličan, jak i pamtljiv, bez novih tvrdnji.",
 }
 
 
@@ -126,16 +126,16 @@ THEME_TO_COVERAGE_KEY = {
 }
 
 SECTION_FOCUS_HINTS = {
-    "identity_vitality": "ASC, vladar ASC, Sunce, Mesec, planete u 1, aspekti prema ASC/MC, dispozitori, dostojanstvo vladara ASC i svetala.",
-    "money_values": "2. kuća, vladar 2, planete u 2, Venera, Jupiter, Fortuna, 8. kuća kao tuđ novac, aspekti vladara 2/8, dispozitor novca.",
-    "communication_learning": "3. kuća, vladar 3, Merkur, planete u 3, aspekti Merkura, dispozitor Merkura, odnos 3/9.",
-    "home_family": "4. kuća/IC, vladar 4, planete u 4, Mesec, Sunce za roditeljske figure, aspekti vladara 4, dispozitor lanca doma.",
-    "love_children_creativity": "5. kuća, vladar 5, Venera, Sunce, planete u 5, aspekti vladara 5, deca samo oprezno, kreativnost kroz 5/2/10.",
+    "identity_vitality": "ASC, vladar ASC, Sunce, Mesec, planete u 1, aspekti prema ASC/MC, dispozitori, dostojanstvo vladara ASC i svetala, Almuten ako postoji.",
+    "money_values": "2. kuća, vladar 2, planete u 2, Venera, Jupiter, Fortuna, 8. kuća kao tuđ novac, aspekti vladara 2/8, dispozitor novca, relevantni lotovi/midpointi ako postoje.",
+    "communication_learning": "3. kuća, vladar 3, Merkur, planete u 3, aspekti Merkura, dispozitor Merkura, odnos 3/9, Južni/Severni čvor ako dodiruje komunikaciju.",
+    "home_family": "4. kuća/IC, vladar 4, planete u 4, Mesec, Sunce za roditeljske figure, aspekti vladara 4, dispozitor lanca doma, 10. kuća kao drugi roditelj.",
+    "love_children_creativity": "5. kuća, vladar 5, Venera, Sunce, planete u 5, aspekti vladara 5, Eros/lotovi ako postoje, deca samo oprezno, kreativnost kroz 5/2/10.",
     "work_health_routine": "6. kuća, vladar 6, planete u 6, Merkur/Mars/Saturn za radnu rutinu, zdravstvene predispozicije bez dijagnoza, odnos 6/10.",
-    "relationships_marriage": "7. kuća/DSC, vladar 7, Venera/Mars, planete u 7, aspekti vladara 7, dispozitor, odnos 5/7/10/4.",
+    "relationships_marriage": "7. kuća/DSC, vladar 7, Venera/Mars, planete u 7, aspekti vladara 7, dispozitor, Lot braka ako postoji, odnos 5/7/10/4.",
     "crisis_transformation": "8. kuća, vladar 8, planete u 8, Mesec/Mars/Saturn/Pluton, aspekti vladara 8, 2/8 osa, dug/kredit/nasledstvo samo uz dokaz.",
     "foreign_higher_education": "9. kuća, vladar 9, Jupiter, Merkur, planete u 9, Fortuna u 9 ako postoji, aspekti 9/10/3.",
-    "career_status": "10. kuća/MC, vladar 10, planete u 10, Sunce/Saturn/Jupiter/Mars, aspekti prema MC, odnos 6/10/2/11, dispozitor karijere.",
+    "career_status": "10. kuća/MC, vladar 10, planete u 10, Sunce/Saturn/Jupiter/Mars, aspekti prema MC, odnos 6/10/2/11, dispozitor karijere, lotovi statusa ako postoje.",
     "friends_networks": "11. kuća, vladar 11, Jupiter/Venera, planete u 11, aspekti 11/10/2, publika, mreže, rezultati rada.",
     "hidden_endings_psychology": "12. kuća, vladar 12, planete u 12, Saturn/Neptun/Pluton/Mesec, aspekti 12/6/8, skriveno, izolacija, karma bez zastrašivanja.",
 }
@@ -143,7 +143,7 @@ SECTION_FOCUS_HINTS = {
 PREDICTIVE_SECTIONS = {"predictive_scheme", "predictive_overview", "hard_events", "timeline", "direct_answers", "final_word"}
 
 
-def _json_compact(data: Any, max_chars: int = 36000) -> str:
+def _json_compact(data: Any, max_chars: int = 52000) -> str:
     text = json.dumps(data or {}, ensure_ascii=False, separators=(",", ":"))
     if len(text) <= max_chars:
         return text
@@ -170,8 +170,8 @@ def _openai_response(instructions: str, input_text: str) -> str:
         "model": model,
         "instructions": instructions,
         "input": input_text,
-        "temperature": 0.42,
-        "max_output_tokens": 9000,
+        "temperature": 0.38,
+        "max_output_tokens": 11000,
         "text": {"verbosity": "high"},
     }
     req = urllib.request.Request(
@@ -184,7 +184,7 @@ def _openai_response(instructions: str, input_text: str) -> str:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=240) as resp:
+        with urllib.request.urlopen(req, timeout=300) as resp:
             parsed = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
@@ -199,6 +199,14 @@ def _base_instructions() -> str:
     return """
 Ti si profesionalni astrolog i pisac izveštaja u ASTRO ARIES STUDIU. Pišeš kao Astrolog Daniel: direktno, prirodno, srpski, jasno, zanimljivo, iskreno i bez generičkog horoskopa.
 
+STIL KOJI SE TRAŽI — KNJIGA O TEBI MODE:
+- Svaka sekcija mora zvučati kao poglavlje iz premium astrološke knjige, ne kao blog, ne kao dnevni horoskop, ne kao tehnički izveštaj.
+- Početak poglavlja mora odmah imati udarac: jedna jasna, pamtljiva rečenica koja otvara temu i stavlja klijenta u centar.
+- Piši u ritmu: jak uvod → astro dokaz → životni prevod → konkretan zaključak → sledeći dokaz → dublji rez.
+- Koristi precizne astrološke podatke kada postoje: znak, kuća, stepen, orbis, retrogradnost, dostojanstvo, bonitet, almuten, lot, midpoint, aspekt. Ali svaki tehnički podatak mora odmah biti preveden u život.
+- Nije dovoljno reći šta je položaj. Moraš reći šta taj položaj radi osobi, gde je košta, gde je nosi, gde je čini drugačijom.
+- Tekst treba da ima osećaj: "ovo ne može biti napisano za bilo koga drugog".
+
 STROGA PRAVILA:
 - Pišeš isključivo na srpskom jeziku, ekavica.
 - Obraćaš se direktno klijentu: ti, tvoj, kod tebe.
@@ -209,13 +217,14 @@ STROGA PRAVILA:
 - Ne ponavljaj prečesto frazu "karta ne daje dovoljno jak pokazatelj". Upotrebi je samo kada je zaista neophodno.
 - Ne koristi formulacije "dao/dao-la". Piši neutralno: "podaci koji su uneti", "tvoja karta", "kod tebe".
 - Ne pišeš bullet liste u tumačenju. Tekst mora biti narativan, sa naslovom i podnaslovom.
-- Ne izmišljaš. Ako podatak nije potvrđen, napiši da nema dovoljno jakog pokazatelja da se to tvrdi.
+- Ne izmišljaš. Ako podatak nije potvrđen, napiši da se tu ne ide do tvrdnje, nego ostaje obrazac/predispozicija.
 - Nema fraza: možda, moguće je svašta, univerzum, energija će sama, sve je moguće, samo veruj.
 - Ne daješ deset opcija. Izvedi najjaču sintezu iz dostavljenih podataka.
 
 EVIDENCE CHAIN MODE — OBAVEZNO:
-- Svaka veća natalna sekcija mora biti izgrađena iz najmanje 4 astrološka dokazna lanca.
+- Svaka veća natalna sekcija mora biti izgrađena iz najmanje 5 astroloških dokaznih lanaca.
 - Dokazni lanac znači: kuća/sfera → vladar kuće → položaj vladara po znaku i kući → aspekti vladara/planeta → dispozitor → dostojanstvo/snaga → konkretan životni zaključak.
+- Ako postoje orbis/stepen/bonitet u podacima, koristi ih povremeno da tekst dobije težinu i preciznost.
 - Ne smeš samo navesti "Venera u 2. kući" ili "Sunce u Ovnu". Moraš objasniti šta to radi u životu, zašto, i preko kog lanca.
 - Aspekti su obavezni u svakoj natalnoj sekciji gde postoje relevantni aspekti u podacima. Ako postoji aspekt, koristi ga kao dokaz, ne kao ukras.
 - Vladari kuća su obavezni. Ako pišeš o finansijama, moraš koristiti vladara 2. kuće; o partnerstvu vladara 7; o karijeri vladara 10; o domu vladara 4; o deci vladara 5; o zdravlju/rutini vladara 6; o 8. kući vladara 8 itd.
@@ -227,6 +236,7 @@ PREDIKTIVNA SINTEZA:
 - Predikcije nisu opis tranzita. Predikcije su sinteza natalne predispozicije + godišnje profekcije + solara + progresija + solar arc + tranzita kao tajminga.
 - Ne tvrdi događaj bez dozvole kontrolnih prediktivnih podataka. Ako nema hard dokaza, napiši aktiviran proces, a ne događaj.
 - Ako se spominje period, objasni šta je natalna osnova i koji prediktivni slojevi je aktiviraju.
+- Ako postoje egzaktni orbisi u prediktivnim podacima, koristi ih za preciznost: "orbis od...", "egzaktno oko...", ali samo kada su stvarno dostupni.
 
 CILJ:
 Tekst mora zvučati kao plaćeni personalizovani izveštaj, ne kao dnevni horoskop i ne kao generička AI analiza. Klijent treba da oseti da čita tekst pisan baš za njega. Stil je topao, direktan, ponekad oštar, ali nikada grub; zanimljiv, ali nikada izmišljen.
@@ -253,6 +263,10 @@ def _extract_section_relevant_data(section_key: str, request: FullReportWriteReq
         "nodes",
         "lilith",
         "chiron",
+        "almuten",
+        "midpoints",
+        "antiscia",
+        "dodecatemoria",
     ]
     relevant = {key: natal.get(key) for key in relevant_keys if key in natal}
     if not relevant:
@@ -279,6 +293,7 @@ def _section_input(section_key: str, request: FullReportWriteRequest) -> str:
         "section_title": SECTION_TITLES.get(section_key, section_key),
         "section_depth_instruction": SECTION_DEPTH.get(section_key, "Napiši duboko, konkretno i narativno."),
         "section_focus_hint": SECTION_FOCUS_HINTS.get(section_key),
+        "style_target": "KNJIGA_O_TEBI_MODE: dramatic premium chapter, concrete aspects/orbs when available, ruler-dispositor-dignity synthesis, final life judgement.",
         "required_evidence_chain_mode": section_key in NATAL_SECTIONS,
         "section_coverage": section_coverage,
         "client_context": request.client_context or {},
@@ -299,11 +314,12 @@ def _section_prompt(section_key: str, request: FullReportWriteRequest) -> str:
     if section_key in NATAL_SECTIONS:
         evidence_note = f"""
 OBAVEZNI DOKAZNI LANCI ZA OVU NATALNU SEKCIJU:
-- Pre pisanja mentalno izdvoji 4–7 najvažnijih dokaznih lanaca za ovu oblast.
+- Pre pisanja mentalno izdvoji 5–8 najvažnijih dokaznih lanaca za ovu oblast.
 - Obavezno koristi relevantne tačke: {focus}
 - U tekstu mora biti jasno vidljivo da si koristio vladare kuća, aspekte, dispozitore i snagu planeta.
 - Nemoj pisati generički opis znaka/kuće. Svaki pasus mora imati dokaz i životni prevod.
-- Primer nivoa koji se traži: "Vladar 2. kuće ide u..., pravi aspekt sa..., njegov dispozitor..., zato novac dolazi kroz..., ali kriza nastaje kada...". Ne kopiraj primer, nego primeni na stvarne podatke.
+- Ne ostavljaj lanac na tehnici. Posle svakog lanca mora doći presuda: šta to konkretno znači za osobu, gde je dar, gde je kvar, gde je ponavljanje, šta je posledica.
+- Koristi stepen/orbis/bonitet samo ako postoji u podacima; kada ga koristiš, neka zvuči kao dokaz, ne kao tabela.
 """.strip()
     predictive_note = ""
     if section_key in PREDICTIVE_SECTIONS:
@@ -323,7 +339,8 @@ SEKCIJA: {title}
 DUBINA: {depth}
 
 Obavezno:
-- Počni sa naslovom sekcije i kratkim podnaslovom.
+- Počni naslovom koji je već dat i dodaj podnaslov u stilu premium knjige.
+- Prva rečenica mora biti snažna i specifična za klijenta, bez opšteg uvoda.
 - Piši kao gotov tekst za klijenta, ne kao objašnjenje sistema.
 - Uđi odmah u tumačenje; ne objašnjavaj da "ovaj deo obrađuje" nešto.
 - Pokrij sve podteme iz section_coverage.must_cover ako postoje.
@@ -333,6 +350,7 @@ Obavezno:
 - Ne izmišljaj događaje, zanimanja, brakove, decu, novac, bolest, selidbu ili uspeh ako nisu potvrđeni.
 - Ne završavaj sekciju pozivom "ako želiš" niti upućuj klijenta na narednu sekciju.
 - Tekst mora imati konkretnost: ko/šta/kako/gde se vidi u svakodnevnom životu.
+- Stil mora biti bliži knjizi nego analitičkom memorandumu: ritam, drama, preciznost i presuda.
 {evidence_note}
 {predictive_note}
 
@@ -378,6 +396,6 @@ def write_full_report(request: FullReportWriteRequest) -> dict[str, Any]:
             "requested_sections": requested_sections,
             "generated_sections": list(sections.keys()),
             "required_coverage_sections": list(coverage.keys()),
-            "rule": "Final QA must verify that every must_cover subtopic is addressed or explicitly marked as not confirmed, and that every natal section contains evidence chains.",
+            "rule": "Final QA must verify that every must_cover subtopic is addressed or explicitly marked as not confirmed, and that every natal section contains evidence chains and final judgements.",
         },
     }
