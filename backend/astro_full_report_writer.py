@@ -41,6 +41,22 @@ DEFAULT_SECTIONS = [
 ]
 
 
+NATAL_SECTIONS = {
+    "identity_vitality",
+    "money_values",
+    "communication_learning",
+    "home_family",
+    "love_children_creativity",
+    "work_health_routine",
+    "relationships_marriage",
+    "crisis_transformation",
+    "foreign_higher_education",
+    "career_status",
+    "friends_networks",
+    "hidden_endings_psychology",
+}
+
+
 SECTION_TITLES = {
     "intro": "Uvod",
     "identity_vitality": "Osnovni pečat karte — ko si, kako te vide i šta nosiš",
@@ -109,10 +125,25 @@ THEME_TO_COVERAGE_KEY = {
     "final_word": "final_word",
 }
 
+SECTION_FOCUS_HINTS = {
+    "identity_vitality": "ASC, vladar ASC, Sunce, Mesec, planete u 1, aspekti prema ASC/MC, dispozitori, dostojanstvo vladara ASC i svetala.",
+    "money_values": "2. kuća, vladar 2, planete u 2, Venera, Jupiter, Fortuna, 8. kuća kao tuđ novac, aspekti vladara 2/8, dispozitor novca.",
+    "communication_learning": "3. kuća, vladar 3, Merkur, planete u 3, aspekti Merkura, dispozitor Merkura, odnos 3/9.",
+    "home_family": "4. kuća/IC, vladar 4, planete u 4, Mesec, Sunce za roditeljske figure, aspekti vladara 4, dispozitor lanca doma.",
+    "love_children_creativity": "5. kuća, vladar 5, Venera, Sunce, planete u 5, aspekti vladara 5, deca samo oprezno, kreativnost kroz 5/2/10.",
+    "work_health_routine": "6. kuća, vladar 6, planete u 6, Merkur/Mars/Saturn za radnu rutinu, zdravstvene predispozicije bez dijagnoza, odnos 6/10.",
+    "relationships_marriage": "7. kuća/DSC, vladar 7, Venera/Mars, planete u 7, aspekti vladara 7, dispozitor, odnos 5/7/10/4.",
+    "crisis_transformation": "8. kuća, vladar 8, planete u 8, Mesec/Mars/Saturn/Pluton, aspekti vladara 8, 2/8 osa, dug/kredit/nasledstvo samo uz dokaz.",
+    "foreign_higher_education": "9. kuća, vladar 9, Jupiter, Merkur, planete u 9, Fortuna u 9 ako postoji, aspekti 9/10/3.",
+    "career_status": "10. kuća/MC, vladar 10, planete u 10, Sunce/Saturn/Jupiter/Mars, aspekti prema MC, odnos 6/10/2/11, dispozitor karijere.",
+    "friends_networks": "11. kuća, vladar 11, Jupiter/Venera, planete u 11, aspekti 11/10/2, publika, mreže, rezultati rada.",
+    "hidden_endings_psychology": "12. kuća, vladar 12, planete u 12, Saturn/Neptun/Pluton/Mesec, aspekti 12/6/8, skriveno, izolacija, karma bez zastrašivanja.",
+}
+
 PREDICTIVE_SECTIONS = {"predictive_scheme", "predictive_overview", "hard_events", "timeline", "direct_answers", "final_word"}
 
 
-def _json_compact(data: Any, max_chars: int = 26000) -> str:
+def _json_compact(data: Any, max_chars: int = 36000) -> str:
     text = json.dumps(data or {}, ensure_ascii=False, separators=(",", ":"))
     if len(text) <= max_chars:
         return text
@@ -139,8 +170,8 @@ def _openai_response(instructions: str, input_text: str) -> str:
         "model": model,
         "instructions": instructions,
         "input": input_text,
-        "temperature": 0.55,
-        "max_output_tokens": 7000,
+        "temperature": 0.42,
+        "max_output_tokens": 9000,
         "text": {"verbosity": "high"},
     }
     req = urllib.request.Request(
@@ -153,7 +184,7 @@ def _openai_response(instructions: str, input_text: str) -> str:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=180) as resp:
+        with urllib.request.urlopen(req, timeout=240) as resp:
             parsed = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
@@ -172,26 +203,61 @@ STROGA PRAVILA:
 - Pišeš isključivo na srpskom jeziku, ekavica.
 - Obraćaš se direktno klijentu: ti, tvoj, kod tebe.
 - Tekst mora ličiti na premium knjigu/izveštaj za klijenta, ne na opis metode.
-- Ne pominješ JSON, payload, score, hard_event, allowed_theme_blocks, confirmation_matrix, API, model, debug, sistem, modul, sekcija, input ili tehničke nazive aplikacije.
+- Ne pominješ JSON, payload, score, hard_event, allowed_theme_blocks, confirmation_matrix, API, model, debug, sistem, modul, input ili tehničke nazive aplikacije.
 - Ne pišeš rečenice iz perspektive alata. Zabranjeno: "u dostavljenim podacima za ovu sekciju", "u ovom pozivu", "ako želiš", "mogu u narednoj sekciji", "nemam kompletan set", "nije dostavljeno u ovoj sekciji".
 - Ne počinji svaku sekciju objašnjavanjem šta ćeš uraditi. Uđi odmah u tumačenje.
-- Ne ponavljaj prečesto frazu "karta ne daje dovoljno jak pokazatelj". Upotrebi je samo kada je zaista neophodno. Inače piši prirodnije: "ovde ne bih išao do tvrdnje", "to ostaje predispozicija, ne gotova činjenica", "ovo se vidi kao obrazac, ne kao siguran događaj".
+- Ne ponavljaj prečesto frazu "karta ne daje dovoljno jak pokazatelj". Upotrebi je samo kada je zaista neophodno.
 - Ne koristi formulacije "dao/dao-la". Piši neutralno: "podaci koji su uneti", "tvoja karta", "kod tebe".
 - Ne pišeš bullet liste u tumačenju. Tekst mora biti narativan, sa naslovom i podnaslovom.
 - Ne izmišljaš. Ako podatak nije potvrđen, napiši da nema dovoljno jakog pokazatelja da se to tvrdi.
 - Nema fraza: možda, moguće je svašta, univerzum, energija će sama, sve je moguće, samo veruj.
 - Ne daješ deset opcija. Izvedi najjaču sintezu iz dostavljenih podataka.
-- Tehničke astrološke pokazatelje prevodiš u život: posao, status, porodica, novac, odnos, odluka, papir, telo, svakodnevica.
-- Aspekti, kuće, vladari, dispozitori, dostojanstva i prediktivne tehnike se koriste kao dokaz u pozadini. Možeš ih pomenuti kratko samo kada to pojačava poverenje, ali nikad ne zatrpavaj klijenta tehnikom.
-- Svaki pomen aspekta mora odmah imati prevod u realan život. Npr. ne piši samo "Merkur u Ovnu", nego objasni kako osoba govori, odlučuje, greši, uči i reaguje.
-- Za predikcije: konkretan događaj smeš tvrditi samo ako kontrolni prediktivni podaci dozvoljavaju tvrd događaj. Ako tvrd događaj ne postoji, piši kao proces, pritisak, tema ili tendencija.
-- Ako je tema sporedna ili blokirana pravilima, ne smeš je pretvarati u glavnu tvrdnju.
-- Svaka sekcija mora odgovoriti na obavezne podteme iz must_cover, ali ne kao spisak pitanja. Utopi odgovore u prirodan tekst.
-- U svakoj većoj natalnoj sekciji moraš dati najmanje 4 konkretne životne manifestacije: kako se vidi u ponašanju, odnosima, poslu, novcu, domu, telu ili odlukama.
+
+EVIDENCE CHAIN MODE — OBAVEZNO:
+- Svaka veća natalna sekcija mora biti izgrađena iz najmanje 4 astrološka dokazna lanca.
+- Dokazni lanac znači: kuća/sfera → vladar kuće → položaj vladara po znaku i kući → aspekti vladara/planeta → dispozitor → dostojanstvo/snaga → konkretan životni zaključak.
+- Ne smeš samo navesti "Venera u 2. kući" ili "Sunce u Ovnu". Moraš objasniti šta to radi u životu, zašto, i preko kog lanca.
+- Aspekti su obavezni u svakoj natalnoj sekciji gde postoje relevantni aspekti u podacima. Ako postoji aspekt, koristi ga kao dokaz, ne kao ukras.
+- Vladari kuća su obavezni. Ako pišeš o finansijama, moraš koristiti vladara 2. kuće; o partnerstvu vladara 7; o karijeri vladara 10; o domu vladara 4; o deci vladara 5; o zdravlju/rutini vladara 6; o 8. kući vladara 8 itd.
+- Dispozitori i dostojanstva nisu dekoracija. Koristi ih da objasniš zašto je neka planeta jaka, slaba, stabilna, preterana, sputana ili operativna.
+- Tehničke elemente ne gomilaj kao tabelu. Upleti ih u narativ: "Zato što... to se u životu vidi kao...".
+- Svaki dokazni lanac mora završiti konkretnim životnim prevodom: ponašanje, odluka, odnos, novac, telo, porodica, posao, kriza, talenat ili rok.
+
+PREDIKTIVNA SINTEZA:
+- Predikcije nisu opis tranzita. Predikcije su sinteza natalne predispozicije + godišnje profekcije + solara + progresija + solar arc + tranzita kao tajminga.
+- Ne tvrdi događaj bez dozvole kontrolnih prediktivnih podataka. Ako nema hard dokaza, napiši aktiviran proces, a ne događaj.
+- Ako se spominje period, objasni šta je natalna osnova i koji prediktivni slojevi je aktiviraju.
 
 CILJ:
 Tekst mora zvučati kao plaćeni personalizovani izveštaj, ne kao dnevni horoskop i ne kao generička AI analiza. Klijent treba da oseti da čita tekst pisan baš za njega. Stil je topao, direktan, ponekad oštar, ali nikada grub; zanimljiv, ali nikada izmišljen.
 """.strip()
+
+
+def _extract_section_relevant_data(section_key: str, request: FullReportWriteRequest) -> dict[str, Any]:
+    natal = request.natal_data or {}
+    relevant_keys = [
+        "angles",
+        "houses",
+        "house_cusps",
+        "planets",
+        "points",
+        "aspects",
+        "aspect_sets",
+        "house_rulers",
+        "dignities",
+        "planetary_condition",
+        "dispositor_chains",
+        "proof_book",
+        "lots",
+        "fixed_stars",
+        "nodes",
+        "lilith",
+        "chiron",
+    ]
+    relevant = {key: natal.get(key) for key in relevant_keys if key in natal}
+    if not relevant:
+        relevant = natal
+    return relevant
 
 
 def _section_input(section_key: str, request: FullReportWriteRequest) -> str:
@@ -212,9 +278,11 @@ def _section_input(section_key: str, request: FullReportWriteRequest) -> str:
         "section_key": section_key,
         "section_title": SECTION_TITLES.get(section_key, section_key),
         "section_depth_instruction": SECTION_DEPTH.get(section_key, "Napiši duboko, konkretno i narativno."),
+        "section_focus_hint": SECTION_FOCUS_HINTS.get(section_key),
+        "required_evidence_chain_mode": section_key in NATAL_SECTIONS,
         "section_coverage": section_coverage,
         "client_context": request.client_context or {},
-        "natal_data": request.natal_data or {},
+        "natal_relevant_data": _extract_section_relevant_data(section_key, request),
         "predictive_context_available": bool(request.predictive_data),
         "interpretation_controls_available": bool(interpretation),
         "predictive_relevant_data": request.predictive_data or {},
@@ -226,11 +294,23 @@ def _section_input(section_key: str, request: FullReportWriteRequest) -> str:
 def _section_prompt(section_key: str, request: FullReportWriteRequest) -> str:
     title = SECTION_TITLES.get(section_key, section_key)
     depth = SECTION_DEPTH.get(section_key, "Napiši duboko, konkretno i narativno.")
+    focus = SECTION_FOCUS_HINTS.get(section_key, "")
+    evidence_note = ""
+    if section_key in NATAL_SECTIONS:
+        evidence_note = f"""
+OBAVEZNI DOKAZNI LANCI ZA OVU NATALNU SEKCIJU:
+- Pre pisanja mentalno izdvoji 4–7 najvažnijih dokaznih lanaca za ovu oblast.
+- Obavezno koristi relevantne tačke: {focus}
+- U tekstu mora biti jasno vidljivo da si koristio vladare kuća, aspekte, dispozitore i snagu planeta.
+- Nemoj pisati generički opis znaka/kuće. Svaki pasus mora imati dokaz i životni prevod.
+- Primer nivoa koji se traži: "Vladar 2. kuće ide u..., pravi aspekt sa..., njegov dispozitor..., zato novac dolazi kroz..., ali kriza nastaje kada...". Ne kopiraj primer, nego primeni na stvarne podatke.
+""".strip()
     predictive_note = ""
     if section_key in PREDICTIVE_SECTIONS:
         predictive_note = """
 VAŽNO ZA PREDIKTIVNU SEKCIJU:
 - Prediktivni i interpretativni podaci jesu dostavljeni ako predictive_context_available ili interpretation_controls_available stoji true.
+- Predikcija mora povezati natalnu osnovu sa profekcijom, solarom, progresijama/solar arc slojem i tranzitnim tajmingom.
 - Ne smeš napisati da nemaš kompletan prediktivni set samo zato što ne postoji tvrd događaj.
 - Ako nema dozvoljenog konkretnog događaja, napiši: period pokreće procese i odluke, ali ne zaključava događaj kao sigurnu činjenicu.
 - Koristi glavne teme iz narrative_focus kao okosnicu perioda, supporting teme kao pozadinu, a hard event samo ako postoji.
@@ -251,9 +331,9 @@ Obavezno:
 - Ne koristi bullet liste.
 - Ne piši tehnički debug.
 - Ne izmišljaj događaje, zanimanja, brakove, decu, novac, bolest, selidbu ili uspeh ako nisu potvrđeni.
-- Za prediktivne delove poštuj kontrolne prediktivne podatke: tvrd događaj samo ako postoji, glavna tema kao proces, sporedna tema kao pozadina.
 - Ne završavaj sekciju pozivom "ako želiš" niti upućuj klijenta na narednu sekciju.
 - Tekst mora imati konkretnost: ko/šta/kako/gde se vidi u svakodnevnom životu.
+{evidence_note}
 {predictive_note}
 
 ULAZNI PODACI ZA OVU SEKCIJU:
@@ -298,6 +378,6 @@ def write_full_report(request: FullReportWriteRequest) -> dict[str, Any]:
             "requested_sections": requested_sections,
             "generated_sections": list(sections.keys()),
             "required_coverage_sections": list(coverage.keys()),
-            "rule": "Final QA must verify that every must_cover subtopic is addressed or explicitly marked as not confirmed.",
+            "rule": "Final QA must verify that every must_cover subtopic is addressed or explicitly marked as not confirmed, and that every natal section contains evidence chains.",
         },
     }
