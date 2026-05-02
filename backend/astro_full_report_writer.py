@@ -86,6 +86,8 @@ THEME_TO_COVERAGE_KEY = {
     "final_word": "final_word",
 }
 
+PREDICTIVE_SECTIONS = {"predictive_scheme", "predictive_overview", "hard_events", "timeline", "direct_answers", "final_word"}
+
 
 def _json_compact(data: Any, max_chars: int = 26000) -> str:
     text = json.dumps(data or {}, ensure_ascii=False, separators=(",", ":"))
@@ -146,15 +148,18 @@ Ti si profesionalni astrolog i pisac izveštaja u ASTRO ARIES STUDIU. Pišeš ka
 STROGA PRAVILA:
 - Pišeš isključivo na srpskom jeziku, ekavica.
 - Obraćaš se direktno klijentu: ti, tvoj, kod tebe.
-- Ne pominješ JSON, payload, score, hard_event, allowed_theme_blocks, confirmation_matrix, API, model, debug ili tehničke nazive sistema.
+- Ne pominješ JSON, payload, score, hard_event, allowed_theme_blocks, confirmation_matrix, API, model, debug, sistem, modul, sekcija, input ili tehničke nazive aplikacije.
+- Ne pišeš rečenice iz perspektive alata. Zabranjeno: "u dostavljenim podacima za ovu sekciju", "u ovom pozivu", "ako želiš", "mogu u narednoj sekciji", "nemam kompletan set", "nije dostavljeno u ovoj sekciji".
+- Ako nema dokaza, piši klijentski i profesionalno: "karta ne daje dovoljno jak pokazatelj da se to tvrdi kao konkretan događaj".
+- Ne koristi formulacije "dao/dao-la". Piši neutralno: "podaci koji su uneti", "tvoja karta", "kod tebe".
 - Ne pišeš bullet liste u tumačenju. Tekst mora biti narativan, sa naslovom i podnaslovom.
 - Ne izmišljaš. Ako podatak nije potvrđen, napiši da nema dovoljno jakog pokazatelja da se to tvrdi.
 - Nema fraza: možda, moguće je svašta, univerzum, energija će sama, sve je moguće, samo veruj.
 - Ne daješ deset opcija. Izvedi najjaču sintezu iz dostavljenih podataka.
 - Tehničke astrološke pokazatelje prevodiš u život: posao, status, porodica, novac, odnos, odluka, papir, telo, svakodnevica.
 - Aspekti, kuće, vladari, dispozitori, dostojanstva i prediktivne tehnike se koriste kao dokaz u pozadini. Možeš ih pomenuti kratko samo kada to pojačava poverenje, ali nikad ne zatrpavaj klijenta tehnikom.
-- Za predikcije: konkretan događaj smeš tvrditi samo ako interpretativni payload dozvoljava hard event. Ako hard event ne postoji, piši kao proces, pritisak, tema ili tendencija.
-- Ako je tema u supporting/blokiranim pravilima, ne smeš je pretvarati u glavnu tvrdnju.
+- Za predikcije: konkretan događaj smeš tvrditi samo ako kontrolni prediktivni podaci dozvoljavaju tvrd događaj. Ako tvrd događaj ne postoji, piši kao proces, pritisak, tema ili tendencija.
+- Ako je tema sporedna ili blokirana pravilima, ne smeš je pretvarati u glavnu tvrdnju.
 - Svaka sekcija mora odgovoriti na obavezne podteme iz must_cover, ali ne kao spisak pitanja. Utopi odgovore u prirodan tekst.
 
 CILJ:
@@ -182,6 +187,8 @@ def _section_input(section_key: str, request: FullReportWriteRequest) -> str:
         "section_coverage": section_coverage,
         "client_context": request.client_context or {},
         "natal_data": request.natal_data or {},
+        "predictive_context_available": bool(request.predictive_data),
+        "interpretation_controls_available": bool(interpretation),
         "predictive_relevant_data": request.predictive_data or {},
         "interpretation_controls": theme_blocks,
     }
@@ -190,6 +197,15 @@ def _section_input(section_key: str, request: FullReportWriteRequest) -> str:
 
 def _section_prompt(section_key: str, request: FullReportWriteRequest) -> str:
     title = SECTION_TITLES.get(section_key, section_key)
+    predictive_note = ""
+    if section_key in PREDICTIVE_SECTIONS:
+        predictive_note = """
+VAŽNO ZA PREDIKTIVNU SEKCIJU:
+- Prediktivni i interpretativni podaci jesu dostavljeni ako predictive_context_available ili interpretation_controls_available stoji true.
+- Ne smeš napisati da nemaš kompletan prediktivni set samo zato što ne postoji tvrd događaj.
+- Ako nema dozvoljenog konkretnog događaja, napiši: karta pokazuje aktivne procese/teme, ali ne daje dovoljno tvrdog dokaza za sigurnu tvrdnju događaja.
+- Koristi glavne teme iz narrative_focus kao okosnicu perioda, supporting teme kao pozadinu, a hard event samo ako postoji.
+""".strip()
     return f"""
 Napiši sledeću sekciju kompletnog Astro Aries izveštaja.
 
@@ -199,11 +215,13 @@ Obavezno:
 - Počni sa naslovom sekcije i kratkim podnaslovom.
 - Piši kao gotov tekst za klijenta, ne kao objašnjenje sistema.
 - Pokrij sve podteme iz section_coverage.must_cover ako postoje.
-- Ako podatak nije potvrđen u dostavljenim astro podacima, ne preskači ga: napiši jasno da nema dovoljno jakog pokazatelja za tvrdnju.
+- Ako podatak nije potvrđen u astro podacima, ne preskači ga: napiši jasno da karta ne daje dovoljno jak pokazatelj za tvrdnju.
 - Ne koristi bullet liste.
 - Ne piši tehnički debug.
 - Ne izmišljaj događaje, zanimanja, brakove, decu, novac, bolest, selidbu ili uspeh ako nisu potvrđeni.
-- Za prediktivne sekcije poštuj interpretation_controls: hard_event samo ako postoji, narrative_focus kao glavna tema/proces, supporting kao pozadina.
+- Za prediktivne delove poštuj kontrolne prediktivne podatke: tvrd događaj samo ako postoji, glavna tema kao proces, sporedna tema kao pozadina.
+- Ne završavaj sekciju pozivom "ako želiš" niti upućuj klijenta na narednu sekciju.
+{predictive_note}
 
 ULAZNI PODACI ZA OVU SEKCIJU:
 {_section_input(section_key, request)}
