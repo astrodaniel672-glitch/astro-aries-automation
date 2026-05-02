@@ -64,6 +64,29 @@ SECTION_TITLES = {
 }
 
 
+SECTION_DEPTH = {
+    "intro": "Napiši 450–700 reči. Uvod mora odmah privući pažnju; ne objašnjavaj predugo šta je izveštaj.",
+    "identity_vitality": "Napiši 1200–1700 reči. Ovo je glavni pečat karte i mora biti dubok, upečatljiv i ličan.",
+    "money_values": "Napiši 1000–1500 reči. Obradi novac životno, sa jasnim razlikovanjem zarade, kriza i tuđeg novca.",
+    "communication_learning": "Napiši 900–1300 reči. Objasni um, govor, učenje, okruženje i greške kroz realne primere.",
+    "home_family": "Napiši 1000–1500 reči. Dom, roditelji i koreni moraju imati dubinu, ali bez izmišljanja događaja.",
+    "love_children_creativity": "Napiši 1000–1500 reči. Razlikuj ljubav, flert, ozbiljnu vezu, decu i kreativnost.",
+    "work_health_routine": "Napiši 1000–1500 reči. Razlikuj radnu rutinu, kolege, obaveze i zdravstvene predispozicije.",
+    "relationships_marriage": "Napiši 1100–1600 reči. Partnerstvo, brak i ugovori moraju biti jasni, direktni i bez lažnih obećanja.",
+    "crisis_transformation": "Napiši 900–1300 reči. 8. kuću obradi ozbiljno, bez senzacionalizma.",
+    "foreign_higher_education": "Napiši 800–1200 reči. Razlikuj znanje, pravo, inostranstvo, put i status kroz obrazovanje.",
+    "career_status": "Napiši 1200–1700 reči. Razlikuj karijeru, status, firmu, poziciju, šefa, kolege, ugovor i stabilnost.",
+    "friends_networks": "Napiši 750–1100 reči. Razlikuj prijatelje, publiku, tim, mreže i rezultate rada.",
+    "hidden_endings_psychology": "Napiši 900–1300 reči. Karmu i 12. kuću piši ozbiljno, bez zastrašivanja.",
+    "predictive_scheme": "Napiši 650–950 reči. Objasni prediktivnu logiku klijentski, bez debug jezika.",
+    "predictive_overview": "Napiši 900–1300 reči. Ovo je pregled narednih 12 meseci, konkretan ali bez tvrdog događaja ako nije dozvoljen.",
+    "hard_events": "Napiši 650–1000 reči. Ako nema tvrdih događaja, objasni šta se aktivira kao proces i šta se ne sme tvrditi.",
+    "timeline": "Napiši 900–1400 reči. Mesece piši kao životni vodič, ne kao listu intenziteta.",
+    "direct_answers": "Napiši 600–1000 reči ili više ako ima pitanja. Odgovaraj direktno: da/ne/delimično, vreme, mehanizam, šta sada.",
+    "final_word": "Napiši 450–750 reči. Završetak mora biti ličan, jak i pamtljiv, bez novih tvrdnji.",
+}
+
+
 THEME_TO_COVERAGE_KEY = {
     "intro": "intro",
     "identity_vitality": "identity_vitality",
@@ -116,8 +139,8 @@ def _openai_response(instructions: str, input_text: str) -> str:
         "model": model,
         "instructions": instructions,
         "input": input_text,
-        "temperature": 0.35,
-        "max_output_tokens": 4500,
+        "temperature": 0.55,
+        "max_output_tokens": 7000,
         "text": {"verbosity": "high"},
     }
     req = urllib.request.Request(
@@ -130,7 +153,7 @@ def _openai_response(instructions: str, input_text: str) -> str:
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=120) as resp:
+        with urllib.request.urlopen(req, timeout=180) as resp:
             parsed = json.loads(resp.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         body = exc.read().decode("utf-8", errors="replace")
@@ -148,9 +171,11 @@ Ti si profesionalni astrolog i pisac izveštaja u ASTRO ARIES STUDIU. Pišeš ka
 STROGA PRAVILA:
 - Pišeš isključivo na srpskom jeziku, ekavica.
 - Obraćaš se direktno klijentu: ti, tvoj, kod tebe.
+- Tekst mora ličiti na premium knjigu/izveštaj za klijenta, ne na opis metode.
 - Ne pominješ JSON, payload, score, hard_event, allowed_theme_blocks, confirmation_matrix, API, model, debug, sistem, modul, sekcija, input ili tehničke nazive aplikacije.
 - Ne pišeš rečenice iz perspektive alata. Zabranjeno: "u dostavljenim podacima za ovu sekciju", "u ovom pozivu", "ako želiš", "mogu u narednoj sekciji", "nemam kompletan set", "nije dostavljeno u ovoj sekciji".
-- Ako nema dokaza, piši klijentski i profesionalno: "karta ne daje dovoljno jak pokazatelj da se to tvrdi kao konkretan događaj".
+- Ne počinji svaku sekciju objašnjavanjem šta ćeš uraditi. Uđi odmah u tumačenje.
+- Ne ponavljaj prečesto frazu "karta ne daje dovoljno jak pokazatelj". Upotrebi je samo kada je zaista neophodno. Inače piši prirodnije: "ovde ne bih išao do tvrdnje", "to ostaje predispozicija, ne gotova činjenica", "ovo se vidi kao obrazac, ne kao siguran događaj".
 - Ne koristi formulacije "dao/dao-la". Piši neutralno: "podaci koji su uneti", "tvoja karta", "kod tebe".
 - Ne pišeš bullet liste u tumačenju. Tekst mora biti narativan, sa naslovom i podnaslovom.
 - Ne izmišljaš. Ako podatak nije potvrđen, napiši da nema dovoljno jakog pokazatelja da se to tvrdi.
@@ -158,12 +183,14 @@ STROGA PRAVILA:
 - Ne daješ deset opcija. Izvedi najjaču sintezu iz dostavljenih podataka.
 - Tehničke astrološke pokazatelje prevodiš u život: posao, status, porodica, novac, odnos, odluka, papir, telo, svakodnevica.
 - Aspekti, kuće, vladari, dispozitori, dostojanstva i prediktivne tehnike se koriste kao dokaz u pozadini. Možeš ih pomenuti kratko samo kada to pojačava poverenje, ali nikad ne zatrpavaj klijenta tehnikom.
+- Svaki pomen aspekta mora odmah imati prevod u realan život. Npr. ne piši samo "Merkur u Ovnu", nego objasni kako osoba govori, odlučuje, greši, uči i reaguje.
 - Za predikcije: konkretan događaj smeš tvrditi samo ako kontrolni prediktivni podaci dozvoljavaju tvrd događaj. Ako tvrd događaj ne postoji, piši kao proces, pritisak, tema ili tendencija.
 - Ako je tema sporedna ili blokirana pravilima, ne smeš je pretvarati u glavnu tvrdnju.
 - Svaka sekcija mora odgovoriti na obavezne podteme iz must_cover, ali ne kao spisak pitanja. Utopi odgovore u prirodan tekst.
+- U svakoj većoj natalnoj sekciji moraš dati najmanje 4 konkretne životne manifestacije: kako se vidi u ponašanju, odnosima, poslu, novcu, domu, telu ili odlukama.
 
 CILJ:
-Tekst mora zvučati kao plaćeni personalizovani izveštaj, ne kao dnevni horoskop i ne kao generička AI analiza. Klijent treba da oseti da čita tekst pisan baš za njega.
+Tekst mora zvučati kao plaćeni personalizovani izveštaj, ne kao dnevni horoskop i ne kao generička AI analiza. Klijent treba da oseti da čita tekst pisan baš za njega. Stil je topao, direktan, ponekad oštar, ali nikada grub; zanimljiv, ali nikada izmišljen.
 """.strip()
 
 
@@ -184,6 +211,7 @@ def _section_input(section_key: str, request: FullReportWriteRequest) -> str:
     data = {
         "section_key": section_key,
         "section_title": SECTION_TITLES.get(section_key, section_key),
+        "section_depth_instruction": SECTION_DEPTH.get(section_key, "Napiši duboko, konkretno i narativno."),
         "section_coverage": section_coverage,
         "client_context": request.client_context or {},
         "natal_data": request.natal_data or {},
@@ -197,30 +225,35 @@ def _section_input(section_key: str, request: FullReportWriteRequest) -> str:
 
 def _section_prompt(section_key: str, request: FullReportWriteRequest) -> str:
     title = SECTION_TITLES.get(section_key, section_key)
+    depth = SECTION_DEPTH.get(section_key, "Napiši duboko, konkretno i narativno.")
     predictive_note = ""
     if section_key in PREDICTIVE_SECTIONS:
         predictive_note = """
 VAŽNO ZA PREDIKTIVNU SEKCIJU:
 - Prediktivni i interpretativni podaci jesu dostavljeni ako predictive_context_available ili interpretation_controls_available stoji true.
 - Ne smeš napisati da nemaš kompletan prediktivni set samo zato što ne postoji tvrd događaj.
-- Ako nema dozvoljenog konkretnog događaja, napiši: karta pokazuje aktivne procese/teme, ali ne daje dovoljno tvrdog dokaza za sigurnu tvrdnju događaja.
+- Ako nema dozvoljenog konkretnog događaja, napiši: period pokreće procese i odluke, ali ne zaključava događaj kao sigurnu činjenicu.
 - Koristi glavne teme iz narrative_focus kao okosnicu perioda, supporting teme kao pozadinu, a hard event samo ako postoji.
+- Mesece bez intenziteta ne opisuj kao događaje. Ako nema okidača, napiši da je to period održavanja i stabilizacije, ne drama.
 """.strip()
     return f"""
 Napiši sledeću sekciju kompletnog Astro Aries izveštaja.
 
 SEKCIJA: {title}
+DUBINA: {depth}
 
 Obavezno:
 - Počni sa naslovom sekcije i kratkim podnaslovom.
 - Piši kao gotov tekst za klijenta, ne kao objašnjenje sistema.
+- Uđi odmah u tumačenje; ne objašnjavaj da "ovaj deo obrađuje" nešto.
 - Pokrij sve podteme iz section_coverage.must_cover ako postoje.
-- Ako podatak nije potvrđen u astro podacima, ne preskači ga: napiši jasno da karta ne daje dovoljno jak pokazatelj za tvrdnju.
+- Ako podatak nije potvrđen u astro podacima, ne preskači ga: reci prirodno da se ne ide do tvrdnje ili da obrazac postoji, ali nije gotov događaj.
 - Ne koristi bullet liste.
 - Ne piši tehnički debug.
 - Ne izmišljaj događaje, zanimanja, brakove, decu, novac, bolest, selidbu ili uspeh ako nisu potvrđeni.
 - Za prediktivne delove poštuj kontrolne prediktivne podatke: tvrd događaj samo ako postoji, glavna tema kao proces, sporedna tema kao pozadina.
 - Ne završavaj sekciju pozivom "ako želiš" niti upućuj klijenta na narednu sekciju.
+- Tekst mora imati konkretnost: ko/šta/kako/gde se vidi u svakodnevnom životu.
 {predictive_note}
 
 ULAZNI PODACI ZA OVU SEKCIJU:
