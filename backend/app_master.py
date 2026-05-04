@@ -13,6 +13,7 @@ try:
     from backend.astro_predictive import PredictiveCalculationRequest, calculate_predictive
     from backend.astro_report_writer import PredictiveReportWriteRequest, write_predictive_report_payload
     from backend.astro_rules import enhance_with_rules
+    from backend.astro_section_evidence import SectionEvidenceRequest, section_evidence_payload
     from backend.astro_timeline import enhance_with_timeline
     from backend.conversation_memory import (
         ConversationLoadRequest,
@@ -37,6 +38,7 @@ except ModuleNotFoundError:
     from astro_predictive import PredictiveCalculationRequest, calculate_predictive
     from astro_report_writer import PredictiveReportWriteRequest, write_predictive_report_payload
     from astro_rules import enhance_with_rules
+    from astro_section_evidence import SectionEvidenceRequest, section_evidence_payload
     from astro_timeline import enhance_with_timeline
     from conversation_memory import (
         ConversationLoadRequest,
@@ -172,6 +174,11 @@ def astro_predictive(request: PredictiveCalculationRequest):
 @app.post("/astro/interpret-predictive")
 def astro_interpret_predictive(request: PredictiveInterpretRequest):
     return interpret_predictive_payload(request)
+
+
+@app.post("/astro/section-evidence")
+def astro_section_evidence(request: SectionEvidenceRequest):
+    return section_evidence_payload(request)
 
 
 @app.post("/astro/write-predictive-report")
