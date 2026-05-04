@@ -11,6 +11,7 @@ try:
     from backend.astro_full_report_writer import FullReportWriteRequest, write_full_report
     from backend.astro_interpreter import PredictiveInterpretRequest, interpret_predictive_payload
     from backend.astro_predictive import PredictiveCalculationRequest, calculate_predictive
+    from backend.astro_predictive_enhancements import enhance_predictive_layers
     from backend.astro_report_writer import PredictiveReportWriteRequest, write_predictive_report_payload
     from backend.astro_rules import enhance_with_rules
     from backend.astro_section_evidence import SectionEvidenceRequest, section_evidence_payload
@@ -36,6 +37,7 @@ except ModuleNotFoundError:
     from astro_full_report_writer import FullReportWriteRequest, write_full_report
     from astro_interpreter import PredictiveInterpretRequest, interpret_predictive_payload
     from astro_predictive import PredictiveCalculationRequest, calculate_predictive
+    from astro_predictive_enhancements import enhance_predictive_layers
     from astro_report_writer import PredictiveReportWriteRequest, write_predictive_report_payload
     from astro_rules import enhance_with_rules
     from astro_section_evidence import SectionEvidenceRequest, section_evidence_payload
@@ -125,6 +127,12 @@ def _safe_astro_predictive(request: PredictiveCalculationRequest):
         result.setdefault("quality_warnings", []).append(warning)
         result["month_by_month"] = None
         result["month_by_month_error"] = warning
+    try:
+        result = enhance_predictive_layers(result)
+    except Exception as exc:
+        warning = f"Enhanced predictive timing layers failed and were skipped: {exc.__class__.__name__}: {str(exc)}"
+        result.setdefault("quality_warnings", []).append(warning)
+        result["predictive_enhancement_error"] = warning
     return result
 
 
