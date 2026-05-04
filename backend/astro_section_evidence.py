@@ -135,11 +135,28 @@ def _filtered_natal_data(natal_data: dict[str, Any]) -> dict[str, Any]:
     return filtered or natal_data
 
 
+def _custom_instruction(context: dict[str, Any] | None) -> str:
+    if not context:
+        return ""
+    for key in ("custom_interpretation_prompt", "interpretation_brief", "focus_question"):
+        value = context.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    questions = context.get("direct_questions") or context.get("questions") or []
+    if isinstance(questions, list) and questions:
+        return "\n".join(str(item).strip() for item in questions if str(item).strip())
+    if isinstance(questions, str):
+        return questions.strip()
+    return ""
+
+
 def _input_payload(request: SectionEvidenceRequest) -> str:
     interpretation = request.interpretation_payload or {}
+    custom_prompt = _custom_instruction(request.client_context)
     payload = {
         "section_key": request.section_key,
         "section_focus_hint": SECTION_FOCUS_HINTS.get(request.section_key, "Use the astrologically relevant house, ruler, planets, aspects, dispositors, dignities and proof layers for this section."),
+        "custom_interpretation_prompt": custom_prompt,
         "client_context": request.client_context or {},
         "natal_data": _filtered_natal_data(request.natal_data or {}),
         "predictive_data": request.predictive_data or {},
@@ -164,6 +181,9 @@ Vrati ISKLJUČIVO validan JSON objekat, bez markdowna i bez objašnjenja van JSO
 CILJ:
 Za zadatu sekciju izvuci najvažnije astrološke dokaze i donesi stručnu presudu. Ovo nije stilsko pisanje. Ovo je analitički mozak pre pisanja.
 
+CUSTOM PROMPT PRAVILO:
+Ako je prosleđen custom_interpretation_prompt, tretiraj ga kao obavezan fokus analize. Ne smeš ga ignorisati. Ako korisnik traži "Neptun u 1. kući", "kada je predispoziciran brak", "promena posla/firme/pozicije" ili bilo koju drugu konkretnu temu, moraš napraviti evidence_chains baš za tu temu, uz proveru svih relevantnih kuća, vladara, aspekata, dispozitora i prediktivnih slojeva. Ako se nešto ne može tvrditi, stavi u cannot_claim, a ne u main_judgement.
+
 OBAVEZNO:
 - Koristi samo dostavljene podatke. Ne izmišljaj stepen, orbis, aspekt, vladara, lot ili planetu ako nisu u podacima.
 - Ako ne možeš da nađeš dokaz za tvrdnju, stavi je u cannot_claim.
@@ -177,6 +197,8 @@ OBAVEZNO:
 JSON FORMAT:
 {
   "section_key": "...",
+  "custom_prompt_answered": true,
+  "custom_prompt_focus": "šta je korisnik tražio, ako postoji",
   "main_judgement": "jedna jaka stručna presuda za oblast",
   "main_gift": "glavna snaga oblasti",
   "main_risk": "glavni rizik ili kvar oblasti",
