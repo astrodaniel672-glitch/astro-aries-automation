@@ -8,6 +8,11 @@ from typing import Any
 
 from pydantic import BaseModel
 
+try:
+    from backend.astro_section_evidence import SectionEvidenceRequest, build_section_evidence_pack
+except ModuleNotFoundError:
+    from astro_section_evidence import SectionEvidenceRequest, build_section_evidence_pack
+
 
 class FullReportWriteRequest(BaseModel):
     natal_data: dict[str, Any]
@@ -16,6 +21,7 @@ class FullReportWriteRequest(BaseModel):
     client_context: dict[str, Any] | None = None
     report_type: str = "full_natal_predictive"
     sections: list[str] | None = None
+    use_evidence_pack: bool = True
 
 
 DEFAULT_SECTIONS = [
@@ -210,27 +216,22 @@ STIL KOJI SE TRAŽI — KNJIGA O TEBI MODE:
 STROGA PRAVILA:
 - Pišeš isključivo na srpskom jeziku, ekavica.
 - Obraćaš se direktno klijentu: ti, tvoj, kod tebe.
-- Tekst mora ličiti na premium knjigu/izveštaj za klijenta, ne na opis metode.
 - Ne pominješ JSON, payload, score, hard_event, allowed_theme_blocks, confirmation_matrix, API, model, debug, sistem, modul, input ili tehničke nazive aplikacije.
 - Ne pišeš rečenice iz perspektive alata. Zabranjeno: "u dostavljenim podacima za ovu sekciju", "u ovom pozivu", "ako želiš", "mogu u narednoj sekciji", "nemam kompletan set", "nije dostavljeno u ovoj sekciji".
 - Ne počinji svaku sekciju objašnjavanjem šta ćeš uraditi. Uđi odmah u tumačenje.
-- Ne ponavljaj prečesto frazu "karta ne daje dovoljno jak pokazatelj". Upotrebi je samo kada je zaista neophodno.
 - Ne koristi formulacije "dao/dao-la". Piši neutralno: "podaci koji su uneti", "tvoja karta", "kod tebe".
 - Ne pišeš bullet liste u tumačenju. Tekst mora biti narativan, sa naslovom i podnaslovom.
 - Ne izmišljaš. Ako podatak nije potvrđen, napiši da se tu ne ide do tvrdnje, nego ostaje obrazac/predispozicija.
 - Nema fraza: možda, moguće je svašta, univerzum, energija će sama, sve je moguće, samo veruj.
 - Ne daješ deset opcija. Izvedi najjaču sintezu iz dostavljenih podataka.
 
-EVIDENCE CHAIN MODE — OBAVEZNO:
-- Svaka veća natalna sekcija mora biti izgrađena iz najmanje 5 astroloških dokaznih lanaca.
-- Dokazni lanac znači: kuća/sfera → vladar kuće → položaj vladara po znaku i kući → aspekti vladara/planeta → dispozitor → dostojanstvo/snaga → konkretan životni zaključak.
-- Ako postoje orbis/stepen/bonitet u podacima, koristi ih povremeno da tekst dobije težinu i preciznost.
-- Ne smeš samo navesti "Venera u 2. kući" ili "Sunce u Ovnu". Moraš objasniti šta to radi u životu, zašto, i preko kog lanca.
-- Aspekti su obavezni u svakoj natalnoj sekciji gde postoje relevantni aspekti u podacima. Ako postoji aspekt, koristi ga kao dokaz, ne kao ukras.
-- Vladari kuća su obavezni. Ako pišeš o finansijama, moraš koristiti vladara 2. kuće; o partnerstvu vladara 7; o karijeri vladara 10; o domu vladara 4; o deci vladara 5; o zdravlju/rutini vladara 6; o 8. kući vladara 8 itd.
-- Dispozitori i dostojanstva nisu dekoracija. Koristi ih da objasniš zašto je neka planeta jaka, slaba, stabilna, preterana, sputana ili operativna.
-- Tehničke elemente ne gomilaj kao tabelu. Upleti ih u narativ: "Zato što... to se u životu vidi kao...".
-- Svaki dokazni lanac mora završiti konkretnim životnim prevodom: ponašanje, odluka, odnos, novac, telo, porodica, posao, kriza, talenat ili rok.
+EVIDENCE PACK JE GLAVNI IZVOR PRESUDE:
+- Ako je uz sekciju dat section_evidence_pack, koristi ga kao obavezan stručni nacrt.
+- main_judgement mora postati centralna poruka poglavlja.
+- main_gift, main_risk i repeating_pattern moraju se jasno osetiti u tekstu.
+- evidence_chains moraju biti pretočeni u narativne pasuse, bez JSON jezika.
+- concrete_manifestations moraju postati konkretni primeri u životu.
+- cannot_claim moraš poštovati: ne smeš tvrdnju iz cannot_claim pretvoriti u događaj.
 
 PREDIKTIVNA SINTEZA:
 - Predikcije nisu opis tranzita. Predikcije su sinteza natalne predispozicije + godišnje profekcije + solara + progresija + solar arc + tranzita kao tajminga.
@@ -274,7 +275,20 @@ def _extract_section_relevant_data(section_key: str, request: FullReportWriteReq
     return relevant
 
 
-def _section_input(section_key: str, request: FullReportWriteRequest) -> str:
+def _build_evidence_pack(section_key: str, request: FullReportWriteRequest) -> dict[str, Any] | None:
+    if not request.use_evidence_pack or section_key not in NATAL_SECTIONS:
+        return None
+    evidence_request = SectionEvidenceRequest(
+        section_key=section_key,
+        natal_data=request.natal_data,
+        predictive_data=request.predictive_data,
+        interpretation_payload=request.interpretation_payload,
+        client_context=request.client_context,
+    )
+    return build_section_evidence_pack(evidence_request)
+
+
+def _section_input(section_key: str, request: FullReportWriteRequest, evidence_pack: dict[str, Any] | None = None) -> str:
     interpretation = request.interpretation_payload or {}
     coverage = interpretation.get("required_report_coverage", {}) or {}
     coverage_key = THEME_TO_COVERAGE_KEY.get(section_key, section_key)
@@ -294,6 +308,7 @@ def _section_input(section_key: str, request: FullReportWriteRequest) -> str:
         "section_depth_instruction": SECTION_DEPTH.get(section_key, "Napiši duboko, konkretno i narativno."),
         "section_focus_hint": SECTION_FOCUS_HINTS.get(section_key),
         "style_target": "KNJIGA_O_TEBI_MODE: dramatic premium chapter, concrete aspects/orbs when available, ruler-dispositor-dignity synthesis, final life judgement.",
+        "section_evidence_pack": evidence_pack,
         "required_evidence_chain_mode": section_key in NATAL_SECTIONS,
         "section_coverage": section_coverage,
         "client_context": request.client_context or {},
@@ -306,7 +321,7 @@ def _section_input(section_key: str, request: FullReportWriteRequest) -> str:
     return _json_compact(data)
 
 
-def _section_prompt(section_key: str, request: FullReportWriteRequest) -> str:
+def _section_prompt(section_key: str, request: FullReportWriteRequest, evidence_pack: dict[str, Any] | None = None) -> str:
     title = SECTION_TITLES.get(section_key, section_key)
     depth = SECTION_DEPTH.get(section_key, "Napiši duboko, konkretno i narativno.")
     focus = SECTION_FOCUS_HINTS.get(section_key, "")
@@ -314,7 +329,8 @@ def _section_prompt(section_key: str, request: FullReportWriteRequest) -> str:
     if section_key in NATAL_SECTIONS:
         evidence_note = f"""
 OBAVEZNI DOKAZNI LANCI ZA OVU NATALNU SEKCIJU:
-- Pre pisanja mentalno izdvoji 5–8 najvažnijih dokaznih lanaca za ovu oblast.
+- Ako postoji section_evidence_pack, on je glavna stručna osnova. Ne smeš ga ignorisati.
+- Pre pisanja mentalno pretvori main_judgement u centralnu osu poglavlja.
 - Obavezno koristi relevantne tačke: {focus}
 - U tekstu mora biti jasno vidljivo da si koristio vladare kuća, aspekte, dispozitore i snagu planeta.
 - Nemoj pisati generički opis znaka/kuće. Svaki pasus mora imati dokaz i životni prevod.
@@ -355,7 +371,7 @@ Obavezno:
 {predictive_note}
 
 ULAZNI PODACI ZA OVU SEKCIJU:
-{_section_input(section_key, request)}
+{_section_input(section_key, request, evidence_pack)}
 """.strip()
 
 
@@ -373,11 +389,19 @@ def write_full_report(request: FullReportWriteRequest) -> dict[str, Any]:
     requested_sections = request.sections or DEFAULT_SECTIONS
     sections: dict[str, str] = {}
     errors: dict[str, str] = {}
+    evidence_packs: dict[str, Any] = {}
     instructions = _base_instructions()
     for section_key in requested_sections:
         if section_key not in DEFAULT_SECTIONS:
             continue
-        prompt = _section_prompt(section_key, request)
+        evidence_pack = None
+        try:
+            evidence_pack = _build_evidence_pack(section_key, request)
+            if evidence_pack:
+                evidence_packs[section_key] = evidence_pack
+        except Exception as exc:
+            errors[f"{section_key}__evidence"] = f"Evidence pack failed: {exc}"
+        prompt = _section_prompt(section_key, request, evidence_pack)
         try:
             sections[section_key] = _openai_response(instructions, prompt)
         except Exception as exc:
@@ -386,15 +410,17 @@ def write_full_report(request: FullReportWriteRequest) -> dict[str, Any]:
     full_text = "\n\n".join(sections[key] for key in requested_sections if key in sections)
     coverage = (request.interpretation_payload or {}).get("required_report_coverage", {}) or {}
     return {
-        "success": len(errors) == 0,
+        "success": len([key for key in errors if not key.endswith("__evidence")]) == 0,
         "schema": "ASTRO_ARIES_FULL_REPORT_V1",
         "report_type": request.report_type,
         "sections": sections,
         "full_text": full_text,
+        "evidence_packs": evidence_packs,
         "errors": errors,
         "qa": {
             "requested_sections": requested_sections,
             "generated_sections": list(sections.keys()),
+            "evidence_pack_sections": list(evidence_packs.keys()),
             "required_coverage_sections": list(coverage.keys()),
             "rule": "Final QA must verify that every must_cover subtopic is addressed or explicitly marked as not confirmed, and that every natal section contains evidence chains and final judgements.",
         },
