@@ -34,27 +34,49 @@ SECTION_FOCUS_HINTS = {
 }
 
 RELEVANT_NATAL_KEYS = [
-    "angles",
-    "houses",
-    "house_cusps",
-    "planets",
-    "points",
-    "aspects",
-    "aspect_sets",
-    "house_rulers",
-    "dignities",
-    "planetary_condition",
-    "dispositor_chains",
-    "proof_book",
-    "lots",
-    "fixed_stars",
-    "nodes",
-    "lilith",
-    "chiron",
-    "almuten",
-    "midpoints",
-    "antiscia",
-    "dodecatemoria",
+    "angles", "houses", "house_cusps", "planets", "points", "aspects", "aspect_sets",
+    "house_rulers", "dignities", "planetary_condition", "dispositor_chains", "proof_book",
+    "lots", "fixed_stars", "nodes", "lilith", "chiron", "almuten", "midpoints",
+    "antiscia", "dodecatemoria",
+]
+
+SERBIAN_ASTRO_TOPIC_RULES = [
+    {
+        "topic": "relationships_marriage",
+        "keywords": ["brak", "partner", "partnera", "partnerstvo", "veza", "vezu", "ljubav", "muž", "žena", "razvod", "upozn", "poznaje", "poznajem", "drugi brak", "više brakova"],
+        "required_checks": ["7. kuća/DSC", "vladar 7. kuće", "Venera", "Mars", "5. kuća i vladar 5", "Mesec", "dispozitor vladara 7", "aspekti vladara 7", "planete u 7. kući", "prediktivni tajming kroz profekciju, solar, progresije, solar arc i tranzite"],
+        "questions": ["kakav je partner", "gde se upoznaje", "da li je brak predispoziciran", "da li postoji više od jednog braka", "da li osoba već poznaje partnera", "kada se tema braka aktivira"],
+    },
+    {
+        "topic": "career_status",
+        "keywords": ["posao", "karijera", "firma", "pozicija", "unapre", "šef", "sef", "status", "promena posla", "promena firme", "ugovor", "kolege", "radno mesto"],
+        "required_checks": ["10. kuća/MC", "vladar 10. kuće", "planete u 10. kući", "6. kuća i vladar 6", "Saturn", "Mars", "Sunce", "2. kuća kao prihod", "11. kuća kao rezultat rada", "prediktivni slojevi za razliku: posao/firma/pozicija/šef/ugovor"],
+        "questions": ["da li je promena posla", "da li je promena firme", "da li je promena pozicije", "da li je promena šefa", "da li je samo pritisak u postojećem poslu", "kada se aktivira"],
+    },
+    {
+        "topic": "money_values",
+        "keywords": ["novac", "finans", "pare", "zarada", "bogat", "siroma", "ulag", "dug", "kredit", "nasled", "isplata", "prihod"],
+        "required_checks": ["2. kuća", "vladar 2. kuće", "planete u 2", "Venera", "Jupiter", "Fortuna", "8. kuća", "vladar 8", "Saturn kao blokada", "Neptun/Jupiter kao rizik iluzije", "prediktivni tajming novca"],
+        "questions": ["odakle dolazi novac", "gde novac curi", "potencijal za bogatstvo", "rizik siromaštva/krize", "tuđ novac", "ulaganja", "dugovi i krediti"],
+    },
+    {
+        "topic": "identity_vitality",
+        "keywords": ["neptun u prvoj", "neptun 1", "neptun u 1", "prva kuća", "identitet", "fizički izgled", "izgled", "kako me vide", "asc", "ascendent", "ličnost", "ko sam"],
+        "required_checks": ["ASC", "1. kuća", "vladar ASC", "planete u 1. kući", "Neptun ako je u 1. ili aspektuje ASC/vladara ASC", "Sunce", "Mesec", "aspekti prema ASC", "dispozitor Neptuna i vladara ASC", "dostojanstvo i stanje vladara ASC"],
+        "questions": ["identitet", "kako osoba deluje drugima", "fizički i energetski utisak", "zablude/projekcije", "intuicija", "magnetizam", "životne greške kroz sliku o sebi"],
+    },
+    {
+        "topic": "home_family",
+        "keywords": ["dom", "kuća", "kuca", "porod", "majka", "otac", "roditelj", "selid", "nekretn", "stan", "koreni"],
+        "required_checks": ["4. kuća/IC", "vladar 4", "planete u 4", "Mesec", "Sunce", "10. kuća kao drugi roditelj", "aspekti vladara 4", "prediktivni slojevi za selidbu/nekretninu"],
+        "questions": ["roditeljski dom", "majka", "otac", "selidbe", "gde je predispozicirano živeti", "nekretnine"],
+    },
+    {
+        "topic": "work_health_routine",
+        "keywords": ["zdrav", "bolest", "rutina", "svakodnev", "imunitet", "telo", "umor", "radna rutina", "produktiv"],
+        "required_checks": ["6. kuća", "vladar 6", "planete u 6", "ASC i vladar ASC", "Mesec", "Saturn/Mars", "12. kuća", "bez medicinske dijagnoze"],
+        "questions": ["rutina", "produktivnost", "osetljive tačke tela", "zdravstvene predispozicije bez dijagnoze", "šta iscrpljuje"],
+    },
 ]
 
 
@@ -112,10 +134,7 @@ def _openai_response_text(instructions: str, input_text: str) -> str:
     req = urllib.request.Request(
         "https://api.openai.com/v1/responses",
         data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         method="POST",
     )
     try:
@@ -138,16 +157,48 @@ def _filtered_natal_data(natal_data: dict[str, Any]) -> dict[str, Any]:
 def _custom_instruction(context: dict[str, Any] | None) -> str:
     if not context:
         return ""
+    parts: list[str] = []
     for key in ("custom_interpretation_prompt", "interpretation_brief", "focus_question"):
         value = context.get(key)
         if isinstance(value, str) and value.strip():
-            return value.strip()
+            parts.append(value.strip())
     questions = context.get("direct_questions") or context.get("questions") or []
-    if isinstance(questions, list) and questions:
-        return "\n".join(str(item).strip() for item in questions if str(item).strip())
-    if isinstance(questions, str):
-        return questions.strip()
-    return ""
+    if isinstance(questions, list):
+        parts.extend(str(item).strip() for item in questions if str(item).strip())
+    elif isinstance(questions, str) and questions.strip():
+        parts.append(questions.strip())
+    seen: set[str] = set()
+    unique_parts = []
+    for item in parts:
+        key = item.lower()
+        if key not in seen:
+            seen.add(key)
+            unique_parts.append(item)
+    return "\n".join(unique_parts)
+
+
+def _normalize_serbian_custom_prompt(custom_prompt: str, section_key: str) -> dict[str, Any]:
+    text = (custom_prompt or "").lower()
+    matched_topics: list[str] = []
+    required_checks: list[str] = []
+    inferred_questions: list[str] = []
+    for rule in SERBIAN_ASTRO_TOPIC_RULES:
+        if any(keyword in text for keyword in rule["keywords"]):
+            matched_topics.append(rule["topic"])
+            required_checks.extend(rule["required_checks"])
+            inferred_questions.extend(rule["questions"])
+    if section_key and section_key not in matched_topics:
+        matched_topics.insert(0, section_key)
+    timing_required = any(word in text for word in ["kada", "kad", "period", "datum", "tajming", "predik", "nared", "godin", "mesec", "aktivira"])
+    return {
+        "raw_prompt": custom_prompt,
+        "matched_topics": list(dict.fromkeys(matched_topics)),
+        "required_checks": list(dict.fromkeys(required_checks)),
+        "inferred_questions": list(dict.fromkeys(inferred_questions)),
+        "timing_required": timing_required,
+        "language": "srpski / natural language",
+        "instruction": "Ovo je normalizovan prevod korisnikovih srpskih rečenica u astrološki zadatak. Mora se koristiti zajedno sa raw_prompt, ne umesto njega.",
+    }
 
 
 def _input_payload(request: SectionEvidenceRequest) -> str:
@@ -157,6 +208,7 @@ def _input_payload(request: SectionEvidenceRequest) -> str:
         "section_key": request.section_key,
         "section_focus_hint": SECTION_FOCUS_HINTS.get(request.section_key, "Use the astrologically relevant house, ruler, planets, aspects, dispositors, dignities and proof layers for this section."),
         "custom_interpretation_prompt": custom_prompt,
+        "normalized_custom_prompt": _normalize_serbian_custom_prompt(custom_prompt, request.section_key),
         "client_context": request.client_context or {},
         "natal_data": _filtered_natal_data(request.natal_data or {}),
         "predictive_data": request.predictive_data or {},
@@ -181,8 +233,15 @@ Vrati ISKLJUČIVO validan JSON objekat, bez markdowna i bez objašnjenja van JSO
 CILJ:
 Za zadatu sekciju izvuci najvažnije astrološke dokaze i donesi stručnu presudu. Ovo nije stilsko pisanje. Ovo je analitički mozak pre pisanja.
 
-CUSTOM PROMPT PRAVILO:
-Ako je prosleđen custom_interpretation_prompt, tretiraj ga kao obavezan fokus analize. Ne smeš ga ignorisati. Ako korisnik traži "Neptun u 1. kući", "kada je predispoziciran brak", "promena posla/firme/pozicije" ili bilo koju drugu konkretnu temu, moraš napraviti evidence_chains baš za tu temu, uz proveru svih relevantnih kuća, vladara, aspekata, dispozitora i prediktivnih slojeva. Ako se nešto ne može tvrditi, stavi u cannot_claim, a ne u main_judgement.
+SRPSKI CUSTOM PROMPT PRAVILO:
+Korisnik piše prirodno, na srpskom, često bez stručnih termina. Moraš razumeti nameru, ne samo reči. U ulazu imaš custom_interpretation_prompt i normalized_custom_prompt. Tretiraj normalized_custom_prompt.required_checks kao obaveznu listu provere. Tretiraj normalized_custom_prompt.inferred_questions kao pitanja na koja evidence pack mora pripremiti odgovor.
+
+Primeri razumevanja:
+- "kada je brak" = proveri 7. kuću, vladara 7, Veneru, Marsa, 5. kuću, dispozitore, aspekte i prediktivni tajming.
+- "da li menja posao" = razlikuj promenu posla, firme, pozicije, šefa, ugovora ili samo pritisak kroz 10/6/2/11 i prediktivne slojeve.
+- "Neptun u prvoj" = proveri Neptun, 1. kuću, ASC, vladara ASC, Sunce, Mesec, aspekte Neptuna i dispozitora.
+
+Ako se nešto ne može tvrditi, stavi u cannot_claim, a ne u main_judgement.
 
 OBAVEZNO:
 - Koristi samo dostavljene podatke. Ne izmišljaj stepen, orbis, aspekt, vladara, lot ili planetu ako nisu u podacima.
@@ -199,6 +258,7 @@ JSON FORMAT:
   "section_key": "...",
   "custom_prompt_answered": true,
   "custom_prompt_focus": "šta je korisnik tražio, ako postoji",
+  "normalized_user_request": {"matched_topics": [], "required_checks": [], "inferred_questions": [], "timing_required": false},
   "main_judgement": "jedna jaka stručna presuda za oblast",
   "main_gift": "glavna snaga oblasti",
   "main_risk": "glavni rizik ili kvar oblasti",
