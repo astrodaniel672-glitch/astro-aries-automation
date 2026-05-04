@@ -15,6 +15,7 @@ try:
     from backend.astro_report_writer import PredictiveReportWriteRequest, write_predictive_report_payload
     from backend.astro_rules import enhance_with_rules
     from backend.astro_section_evidence import SectionEvidenceRequest, section_evidence_payload
+    from backend.astro_text_cleaner import clean_report_payload
     from backend.astro_timeline import enhance_with_timeline
     from backend.conversation_memory import (
         ConversationLoadRequest,
@@ -41,6 +42,7 @@ except ModuleNotFoundError:
     from astro_report_writer import PredictiveReportWriteRequest, write_predictive_report_payload
     from astro_rules import enhance_with_rules
     from astro_section_evidence import SectionEvidenceRequest, section_evidence_payload
+    from astro_text_cleaner import clean_report_payload
     from astro_timeline import enhance_with_timeline
     from conversation_memory import (
         ConversationLoadRequest,
@@ -196,7 +198,7 @@ def astro_write_predictive_report(request: PredictiveReportWriteRequest):
 
 @app.post("/astro/write-full-report")
 def astro_write_full_report(request: FullReportWriteRequest):
-    return write_full_report(request)
+    return clean_report_payload(write_full_report(request))
 
 
 @app.post("/intent/extract")
